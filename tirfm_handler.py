@@ -749,7 +749,7 @@ class TIRFMSettings() :
 
                     intensity += self.get_PSF(r, z, wave_length)
 
-		#if (wave_length == 532) : break
+		if (wave_length == 532) : break
 
 	# Normalization
 	for j in range(len(z)) :
@@ -1370,7 +1370,7 @@ class TIRFMVisualizer() :
             pylab.contour(X, Y,  self.settings.fluorophore_signal, spec_scale, linewidth=0.1, color='k')
             pylab.contourf(X, Y, self.settings.fluorophore_signal, spec_scale, cmap=pylab.cm.jet)
 
-            pylab.axis([0, 1000, 0, 1000])
+            pylab.axis([0, 600, 0, 1000])
             pylab.xlabel('Radial [nm]')
             pylab.ylabel('Depth [nm]')
             pylab.title('Photon [#]')

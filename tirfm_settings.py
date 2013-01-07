@@ -18,7 +18,6 @@
 """
 
 import numpy
-from rgb_colors import *
 
 #-----------------------------
 # General 
@@ -35,13 +34,13 @@ particles_list  = None
 # Fluorophore
 #-----------------------------
 fluorophore_type = 'Gauss'
-fluorophore_wavelength = numpy.array([i for i in range(300, 1500)])
+fluorophore_wavelength = numpy.array([i for i in range(300, 1000)])
 fluorophore_wavenumber = numpy.array([2.*numpy.pi/fluorophore_wavelength[i] for i in range(len(fluorophore_wavelength))])
 fluoex_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 fluoem_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 
-fluorophore_radial = numpy.array([1.0*i for i in range(1000)])
-fluorophore_depth  = numpy.array([1.0*i for i in range(1000)])
+fluorophore_radial = numpy.array([1.0*i for i in range(600)])
+fluorophore_depth  = numpy.array([1.0*i for i in range(800)])
 fluorophore_signal = numpy.array([[0.0 for i in range(len(fluorophore_radial))] for j in range(len(fluorophore_depth))])
 fluorophore_rgb    = numpy.array([(0, 0, 0) for j in range(len(fluorophore_depth))])
 
@@ -145,7 +144,7 @@ camera_red   = numpy.array([1.0 for i in range(len(fluorophore_wavelength))])
 #-----------------------------
 # Image/Movie
 #-----------------------------
-movie_background_color = RGB_LIGHT_SLATE_GRAY
+movie_background_color = (0, 0, 0)
 movie_image_file_dir = "./images"
 movie_image_file_name_format = 'image_%04d.png' # Must be compatible with FFmpeg's input-file notation
 movie_cleanup_image_file_dir = False
