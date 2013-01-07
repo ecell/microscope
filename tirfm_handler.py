@@ -749,7 +749,8 @@ class TIRFMSettings() :
 
                     intensity += self.get_PSF(r, z, wave_length)
 
-		if (wave_length == 532) : break
+		#if (wave_length == 532) : break
+
 
 	# Normalization
 	for j in range(len(z)) :
@@ -757,7 +758,7 @@ class TIRFMSettings() :
 	    self.fluorophore_signal[j] = intensity[j]/Norm
 	    self.fluorophore_rgb[j] = (N_r[j], N_g[j], N_b[j])
 
-	    print self.fluorophore_signal[j][0], self.fluorophore_rgb[j]
+	    if (j < 50) : print self.fluorophore_signal[j][0], self.fluorophore_rgb[j]
 
 
 #	        for i in range(len(self.fluorophore_radial)) :

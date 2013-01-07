@@ -16,16 +16,16 @@ def test_image() :
 
     # Spectral Arrangement
     tirfm.set_IncidentBeam(wave_length=590, intensity=1e+5, excitation=None)
-    tirfm.set_Fluorophore(fluorophore_type='Tetramethylrhodamine(TRITC)')
-    #tirfm.set_Fluorophore(fluorophore_type='Gaussian', wave_length=650, width=(70.0, 70.0))
+    #tirfm.set_Fluorophore(fluorophore_type='Tetramethylrhodamine(TRITC)')
+    tirfm.set_Fluorophore(fluorophore_type='Gaussian', wave_length=650, width=(70.0, 70.0))
     #tirfm.set_Fluorophore(fluorophore_type='Point-like', wave_length=600)
-    tirfm.set_Mirror(position=0.0)
+    tirfm.set_Mirror(position=0.9)
     tirfm.set_Objective(mag=60, NA=1.49, Nm=1.37, efficiency=0.90)
-    tirfm.set_DichroicMirror('FF562-Di03-25x36')
-    tirfm.set_EmissionFilter('FF01-593_40-25')
+    #tirfm.set_DichroicMirror('FF562-Di03-25x36')
+    #tirfm.set_EmissionFilter('FF01-593_40-25')
     tirfm.set_TubeLens(mag=4)
-    tirfm.set_Pinhole(radius=150)
-    tirfm.set_Camera(camera='EMCCD-Color', zoom=0.6, focal_point=(0.5,0.5,0.5), \
+    #tirfm.set_Pinhole(radius=150)
+    tirfm.set_Camera(camera='EMCCD', zoom=0.6, focal_point=(0.0,0.5,0.5), \
 			start_time=0, end_time=33, fps=30, exposure_time=0.033)
     tirfm.set_Movie(image_file_dir='./images', movie_filename='./movies/test_cube.mp4')
     #tirfm.set_DataFile(['./data/lattice/test_model_volume.h5'])
