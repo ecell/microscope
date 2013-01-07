@@ -35,26 +35,25 @@ particles_list  = None
 # Fluorophore
 #-----------------------------
 fluorophore_type = 'Gauss'
-fluorophore_wavelength = numpy.array([i for i in range(300, 3000)])
+fluorophore_wavelength = numpy.array([i for i in range(300, 1500)])
 fluorophore_wavenumber = numpy.array([2.*numpy.pi/fluorophore_wavelength[i] for i in range(len(fluorophore_wavelength))])
 fluoex_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 fluoem_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 
-fluorophore_position = numpy.array([1.0*i for i in range(1000)])
-fluorophore_depth    = numpy.array([1.0*i for i in range(1000)])
-fluorophore_signal = numpy.array([[0.0 for i in range(len(fluorophore_position))] for j in range(len(fluorophore_depth))])
-fluorophore_rgb    = numpy.array([None for j in range(len(fluorophore_depth))])
+fluorophore_radial = numpy.array([1.0*i for i in range(1000)])
+fluorophore_depth  = numpy.array([1.0*i for i in range(1000)])
+fluorophore_signal = numpy.array([[0.0 for i in range(len(fluorophore_radial))] for j in range(len(fluorophore_depth))])
+fluorophore_rgb    = numpy.array([(0, 0, 0) for j in range(len(fluorophore_depth))])
 
 #-----------------------------
 # PSF
 #-----------------------------
 psf_wavelength = 600 # nm
-psf_param  = (200, 200)	# Gaussian function parameter (radial width, lateral width) [nm]
+psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
 psf_cutoff = (400, 100)	# cutoff range (radius, depth)
 psf_file_name_format = 'psf_%04d.png'	# Image file name
 
 penetration_depth = 200 # nm
-voxel_radius = 10e-9 # m 
 
 #-----------------------------
 # Incident Beam Condition
@@ -62,7 +61,7 @@ voxel_radius = 10e-9 # m
 beam_switch  = False       
 beam_wavelength = 600.  # nm
 beam_intensity = 3.108e-3 # W/cm^2
-beam_pinhole_radius = len(fluorophore_position)
+beam_pinhole_radius = len(fluorophore_radial)
 
 #-----------------------------
 # Mirror
@@ -112,7 +111,7 @@ tubelens_efficiency = 0.9987
 #-----------------------------
 # Pinhole
 #-----------------------------
-pinhole_radius = len(fluorophore_position)
+pinhole_radius = len(fluorophore_radial)
 
 #-----------------------------
 # Camera
@@ -139,7 +138,6 @@ camera_dark_current = 0.0
 camera_excess = 1.0
 camera_emgain = 1.0
 
-camera_image_color = False
 camera_blue  = numpy.array([1.0 for i in range(len(fluorophore_wavelength))])
 camera_green = numpy.array([1.0 for i in range(len(fluorophore_wavelength))])
 camera_red   = numpy.array([1.0 for i in range(len(fluorophore_wavelength))])

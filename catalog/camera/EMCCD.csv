@@ -4,7 +4,6 @@ ProductName,"ImgEM-CCD Camera"
 Comment,""
 Public,1
 image_size,512
-image_color,0
 pixel_length,16e-6
 sat_charge,37000
 readout,25.0

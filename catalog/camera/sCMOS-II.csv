@@ -4,7 +4,6 @@ ProductName,"Gen II Scientific CMOS Camera"
 Comment,""
 Public,1
 image_size,2048
-image_color,0
 pixel_length,6.5e-6
 sat_charge,30000
 readout,1.30
