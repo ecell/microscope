@@ -778,7 +778,7 @@ class TIRFMSettings() :
                 J0 = numpy.array(j0(r[j]*alpha*rho))
                 I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
 
-                self.fluorophore_psf[i][j] = abs(sum(I))**2
+                self.fluorophore_psf[i][j] += abs(sum(I))**2
 
 
 
