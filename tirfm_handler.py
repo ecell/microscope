@@ -768,67 +768,25 @@ class TIRFMSettings() :
 
         alpha = k*NA
         gamma = k*(NA/2)**2
+	
+        J0 = map(lambda x : j0(x*alpha*rho), r)
+	Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+	I  = numpy.array(map(lambda x : x*J0, Y))
+	I_sum = I.sum(axis=2)
+        I_abs = map(lambda x : abs(x)**2, I_sum)
 
-	for i in range(len(z)) :
+	self.fluorophore_psf += I_abs 
 
-	    y = z[i]*gamma*rho**2
-
-	    for j in range(len(r)) :
-
-                J0 = numpy.array(j0(r[j]*alpha*rho))
-                I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
-
-                self.fluorophore_psf[i][j] += abs(sum(I))**2
-
-
-
-#	N = 100
-#	drho = 1.0/N
-#	rho = numpy.array([i*drho for i in range(N)])
+#	for i in range(len(z)) :
 #
-#	k  = 2.0*numpy.pi/wave_length
-#	NA = self.objective_NA
+#	    y = z[i]*gamma*rho**2
 #
-#	alpha = k*NA
-#	gamma = k*(NA/2)**2
+#	    for j in range(len(r)) :
 #
-#	J0 = numpy.array([self.Bessel0(r*alpha*rho[i]) for i in range(N)])
+#                J0 = numpy.array(j0(r[j]*alpha*rho))
+#                I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
 #
-#        y = z*gamma*rho**2
-#	psf = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
-#
-#        I = abs(sum(psf))**2
-#
-#	return I
-#
-
-
-#    ## referenced from numerical recipe in C
-#    def Bessel0(self, x) :
-#
-#	ax = abs(x)
-#
-#	if (x < 8.0) : # Direct rational function fit
-#
-#	    y = x*x
-#
-#	    ans1 = 57568490574.0+y*(-13362590354.0+y*(651619640.7+y*(-11214424.18+y*(77392.33017+y*(-184.9052456)))))
-#	    ans2 = 57568490411.0+y*(  1029532985.0+y*(9494680.718+y*( 59272.64853+y*(267.8532712+y*(1.0)))))
-#
-#	    ans = ans1/ans2
-#
-#	else : # Fitting function (6.5.9)
-#
-#	    z = 8.0/ax
-#	    y = z*z
-#	    xx = ax - 0.785398164
-#
-#	    ans1 = 1.0+y*(-0.1098628627e-2+y*(0.2734510407e-4+y*(-0.2073370639e-5+y*(0.2093887211e-6))))
-#	    ans2 = -0.1562499995e-1+y*(0.1430488765e-3+y*(-0.6911147651e-5+y*(0.7621095161e-6-y*(0.934945152e-7))))
-#
-#	    ans = numpy.sqrt(0.636619772/ax)*(numpy.cos(xx)*ans1 - z*numpy.sin(xx)*ans2)
-#
-#	return ans
+#                self.fluorophore_psf[i][j] += abs(sum(I))**2
 
 
 
