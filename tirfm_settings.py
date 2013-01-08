@@ -40,9 +40,9 @@ fluoex_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 fluoem_eff  = numpy.array([0.0 for i in range(len(fluorophore_wavelength))])
 
 fluorophore_radial = numpy.array([1.0*i for i in range(600)])
-fluorophore_depth  = numpy.array([1.0*i for i in range(800)])
-fluorophore_signal = numpy.array([[0.0 for i in range(len(fluorophore_radial))] for j in range(len(fluorophore_depth))])
-fluorophore_rgb    = numpy.array([(0, 0, 0) for j in range(len(fluorophore_depth))])
+fluorophore_depth  = numpy.array([1.0*i for i in range(1000)])
+fluorophore_psf = numpy.array([[0.0 for i in range(len(fluorophore_radial))] for j in range(len(fluorophore_depth))])
+fluorophore_rgb = numpy.array([(0, 0, 0) for j in range(len(fluorophore_depth))])
 
 #-----------------------------
 # PSF

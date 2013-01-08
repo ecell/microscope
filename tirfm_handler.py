@@ -245,8 +245,8 @@ class TIRFMSettings() :
 	norm = sum(self.fluoex_eff)
 	self.fluoex_norm = self.fluoex_eff/norm
 
-        norm = sum(self.fluoem_eff)
-        self.fluoem_norm = self.fluoem_eff/norm
+	norm = sum(self.fluoem_eff)
+	self.fluoem_norm = self.fluoem_eff/norm
 
 
 
@@ -655,7 +655,7 @@ class TIRFMSettings() :
 
         if (ref > 0) :
 
-            self.penetration_depth  = wave_length/(4*math.pi*math.sqrt(ref))
+            self.penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))
 
             print '--- TIRF Configuration : '
 
@@ -679,16 +679,8 @@ class TIRFMSettings() :
 
     def set_PSF(self) :
 
-	intensity = self.fluorophore_signal
-
-	# EM gain
-	gain = self.camera_emgain
-
 	# Point Spread Function (PSF)
-        #for j in range(len(self.fluorophore_depth)) :
-	#    z = self.fluorophore_depth[j] # in nm-scale
-
-        # radial position and depth
+        # --- radial position and depth
         r = self.fluorophore_radial # in nm-scale
 	z = self.fluorophore_depth  # in nm-scale
 
@@ -708,8 +700,6 @@ class TIRFMSettings() :
                 if (I < 1e-4) :
                     continue
 
-                print wave_length, 'nm'
-
                 # Photon Transmission Efficiency
 		TEff = 1.0
 
@@ -718,6 +708,11 @@ class TIRFMSettings() :
 
                 if (self.emission_switch == True) :
                     TEff = TEff*0.01*self.emission_eff[index]
+
+                if (TEff < 1e-4) :
+                    continue
+
+                print wave_length, 'nm'
 
 		# count photons
 		N_ph = TEff*I*self.get_Photons(wave_length, z)
@@ -738,63 +733,31 @@ class TIRFMSettings() :
 
 		    for j in range(len(z)) :
 
-			intensity[j] += I0*Ir*Iz[j]
+			self.fluorophore_psf[j] += I0*Ir*Iz[j]
 
 
 		elif (self.fluorophore_type == 'Point-like') :
 
-		    intensity[0][0] += 1.0
+		    self.fluorophore_psf[0][0] += 1.00
 
                 else :
 
-                    intensity += self.get_PSF(r, z, wave_length)
+                    self.get_PSF(r, z, wave_length)
 
-		#if (wave_length == 532) : break
+		#if (wave_length == 567) : break
 
 
 	# Normalization
 	for j in range(len(z)) :
 
-	    self.fluorophore_signal[j] = intensity[j]/Norm
+	    self.fluorophore_psf[j] = self.fluorophore_psf[j]/Norm
 	    self.fluorophore_rgb[j] = (N_r[j], N_g[j], N_b[j])
 
-	    if (j < 50) : print self.fluorophore_signal[j][0], self.fluorophore_rgb[j]
-
-
-#	        for i in range(len(self.fluorophore_radial)) :
-#
-#		        r = self.fluorophore_radial[i] # in nm-scale
-#		        #if (r < self.beam_pinhole_radius) :
-#
-#		        if (self.fluorophore_type == 'Gaussian') :
-#
-#                            I0 = 1.0
-#                            Ir = numpy.exp(-0.5*(r/self.psf_width[0])**2)
-#                            Iz = numpy.exp(-0.5*(z/self.psf_width[1])**2)
-#
-#                            intensity[j][i] += I0*Ir*Iz
-#
-#			elif (self.fluorophore_type == 'Point-like') :
-#
-#                            if (i > 0) : intensity[j][i] = 0.0
-#			    else : intensity[j][i] = 1.0
-#
-#		        else :
-#			    intensity[j][i] += self.get_PSF(r, z, wave_length)
-
-	    # Normalization
-	    #self.fluorophore_signal[j] = intensity[j]/Norm
-	    #self.fluorophore_rgb[j] = (N_r, N_g, N_b)
-
-	    #if (j == 0) :
-	    #print self.fluorophore_signal[j][0], self.fluorophore_rgb[j]
-            #if (j == 0) : break
+	    if (j < 10) : print self.fluorophore_psf[j][0], self.fluorophore_rgb[j]
 
 
 
     def get_PSF(self, r, z, wave_length) :
-
-	psf = self.fluorophore_signal
 
         N = 100
         drho = 1.0/N
@@ -815,10 +778,9 @@ class TIRFMSettings() :
                 J0 = numpy.array(j0(r[j]*alpha*rho))
                 I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
 
-                psf[i][j] = abs(sum(I))**2
+                self.fluorophore_psf[i][j] = abs(sum(I))**2
 
 
-	return psf
 
 #	N = 100
 #	drho = 1.0/N
@@ -1189,9 +1151,9 @@ class TIRFMVisualizer() :
 
 			N_pe = self.settings.fluorophore_rgb[int(d)]
 
-		        signal[0] += N_pe[0]*gain*self.settings.fluorophore_signal[int(d)][int(r)]
-		        signal[1] += N_pe[1]*gain*self.settings.fluorophore_signal[int(d)][int(r)]
-		        signal[2] += N_pe[2]*gain*self.settings.fluorophore_signal[int(d)][int(r)]
+		        signal[0] += N_pe[0]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
+		        signal[1] += N_pe[1]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
+		        signal[2] += N_pe[2]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
 
 		# get noise
 		noise = [self.settings.get_Noise(signal[i]) for i in range(3)]
@@ -1356,7 +1318,7 @@ class TIRFMVisualizer() :
     
     	    ######
     	    fig_spec_pos = pylab.figure()
-    	    pylab.plot(self.settings.fluorophore_radial, self.settings.fluorophore_signal[0], color='pink', label='Radial PSF', linewidth=2)
+    	    pylab.plot(self.settings.fluorophore_radial, self.settings.fluorophore_psf[0], color='pink', label='Radial PSF', linewidth=2)
     	    pylab.xlabel('Radial Position [nm]')
     	    pylab.ylabel('Photon [#]')
     	    pylab.title('Fluorophore : ' + self.settings.fluorophore_type)
@@ -1365,11 +1327,11 @@ class TIRFMVisualizer() :
             ######
             fig_spec_cont = pylab.figure()
 
-            spec_scale = numpy.linspace(0, self.settings.fluorophore_signal[0][0], 101, endpoint=True)
+            spec_scale = numpy.linspace(0, self.settings.fluorophore_psf[0][0], 101, endpoint=True)
             X, Y = numpy.meshgrid(self.settings.fluorophore_radial, self.settings.fluorophore_depth)
 
-            pylab.contour(X, Y,  self.settings.fluorophore_signal, spec_scale, linewidth=0.1, color='k')
-            pylab.contourf(X, Y, self.settings.fluorophore_signal, spec_scale, cmap=pylab.cm.jet)
+            pylab.contour(X, Y,  self.settings.fluorophore_psf, spec_scale, linewidth=0.1, color='k')
+            pylab.contourf(X, Y, self.settings.fluorophore_psf, spec_scale, cmap=pylab.cm.jet)
 
             pylab.axis([0, 600, 0, 1000])
             pylab.xlabel('Radial [nm]')
