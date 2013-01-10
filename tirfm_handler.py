@@ -741,6 +741,17 @@ class TIRFMSettings() :
 	r = self.fluorophore_radial # in nm-scale
 	z = self.fluorophore_depth  # in nm-scale
 
+        # Fluorophores Emission Intensity (wave_length)
+        I = self.fluoem_norm
+
+        # Photon Transmission Efficiency
+        if (self.dichroic_switch == True) :
+            I = I*0.01*self.dichroic_eff
+
+        if (self.emission_switch == True) :
+            I = I*0.01*self.emission_eff
+
+
 	# Count the number of photons
 	N_b = N_g = N_r = 0
 	N_pe = 0
@@ -749,35 +760,19 @@ class TIRFMSettings() :
 	for k in range(len(self.fluorophore_wavelength)) :
 
                 wave_length = self.fluorophore_wavelength[k]
-                index = wave_length - self.fluorophore_wavelength[0]
 
-                # Fluorophores Emission Intensity (wave_length)
-                I = self.fluoem_norm[k]
-
-                if (I < 1e-4) :
-                    continue
-
-                # Photon Transmission Efficiency
-		TEff = 1.0
-
-                if (self.dichroic_switch == True) :
-                    TEff = TEff*0.01*self.dichroic_eff[index]
-
-                if (self.emission_switch == True) :
-                    TEff = TEff*0.01*self.emission_eff[index]
-
-                if (TEff < 1e-4) :
+                if (I[k] < 1e-4) :
                     continue
 
                 print wave_length, 'nm'
 
 		# count photons
-		N_ph = TEff*I*self.get_Photons(z, wave_length)
+		N_ph = I[k]*self.get_Photons(z, wave_length)
 
 		# Camera : Quantum Efficiency
-                N_b += N_ph*self.camera_blue[index]
-                N_g += N_ph*self.camera_green[index]
-                N_r += N_ph*self.camera_red[index]
+                N_b += N_ph*self.camera_blue[k]
+                N_g += N_ph*self.camera_green[k]
+                N_r += N_ph*self.camera_red[k]
 
 		N_pe += (N_b + N_g + N_r)
                 Norm += 1
@@ -856,7 +851,7 @@ class TIRFMSettings() :
 
     def get_PSF(self, r, z, wave_length) :
 
-        N = 100
+        N = 50
         drho = 1.0/N
         rho = numpy.array([i*drho for i in range(N)])
 
@@ -876,16 +871,7 @@ class TIRFMSettings() :
 
         self.fluorophore_psf += I_abs
 
-	for i in range(len(z)) :
-
-	    y = z[i]*gamma*rho**2
-
-	    for j in range(len(r)) :
-
-                J0 = numpy.array(j0(r[j]*alpha*rho))
-                I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
-
-                self.fluorophore_psf[i][j] += abs(sum(I))**2
+	print I_abs[0][0]
 
 
 
