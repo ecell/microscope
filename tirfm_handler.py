@@ -608,7 +608,11 @@ class TIRFMSettings() :
 
 
 
-    def get_Photons(self, wave_length, z) :
+#    def get_Photons(self) :
+    def get_Photons(self, z, wave_length) :
+
+	#wave_length = self.fluorophore_wavelength
+	#z = self.fluorophore_depth # in nm scale 
 
 	# plank const * speed of light
 	hc = 2.00e-25 # J m
@@ -624,6 +628,7 @@ class TIRFMSettings() :
 	N_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
 
 	N_photons_in = N0*N_pd*N_fd
+	#N_photons_in =  numpy.array(map(lambda x : N0*x, N_pd*N_fd))
 
 	#################################################################
 	#
@@ -677,19 +682,71 @@ class TIRFMSettings() :
 
 
 
+#    def set_PSF(self) :
+#
+#        r = self.fluorophore_radial # in nm-scale
+#        z = self.fluorophore_depth  # in nm-scale
+#
+#	# transmission efficiency
+#	I = self.fluoem_norm
+#        TEff = 1.0
+#
+#	if (self.dichroic_switch == True) :
+#	    TEff = TEff*0.01*self.dichroic_eff
+#
+#	if (self.emission_switch == True) :
+#	    TEff = TEff*0.01*self.emission_eff
+#
+#	# count photons
+#	N_ph = map(lambda x : I*TEff*x, self.get_Photons())
+#
+#	# Detector : Quantum Efficiency
+#	N_b  = map(lambda x : x*self.camera_blue,  N_ph)
+#	N_g  = map(lambda x : x*self.camera_green, N_ph)
+#	N_r  = map(lambda x : x*self.camera_red,   N_ph)
+#
+#	# count photoelectrons
+#	N_pe = sum(N_b + N_g + N_r)
+#	Norm_array  = map(lambda x : True if x > 1e-2 else False, N_pe)
+#	Norm_factor = sum(Norm_array)
+#
+#
+#	# Point Spread Function (PSF)
+#	if (self.fluorophore_type == 'Gaussian') :
+#
+#	    I0 = 1.0
+#	    Ir = numpy.exp(-0.5*(r/self.psf_width[0])**2)
+#	    Iz = numpy.exp(-0.5*(z/self.psf_width[1])**2)
+#
+#	    I = map(lambda x : I0*Ir*x/Norm_factor, Iz)
+#
+#	    self.fluorophore_psf += I
+#
+#
+#	elif (self.fluorophore_type == 'Point-like') :
+#
+#	    self.fluorophore_psf[0][0] += 1.00/Norm_factor
+#
+#	else :
+#
+#	    self.get_PSF(Norm_array)
+#
+#
+#	# Normalization
+#	#self.fluorophore_rgb = (N_r, N_g, N_b)
+
+
     def set_PSF(self) :
 
-	# Point Spread Function (PSF)
-        # --- radial position and depth
-        r = self.fluorophore_radial # in nm-scale
+	r = self.fluorophore_radial # in nm-scale
 	z = self.fluorophore_depth  # in nm-scale
 
-        # Count the number of photons
-        N_b = N_g = N_r = 0
-        N_pe = 0
+	# Count the number of photons
+	N_b = N_g = N_r = 0
+	N_pe = 0
 	Norm = 0
 
-        for k in range(len(self.fluorophore_wavelength)) :
+	for k in range(len(self.fluorophore_wavelength)) :
 
                 wave_length = self.fluorophore_wavelength[k]
                 index = wave_length - self.fluorophore_wavelength[0]
@@ -715,7 +772,7 @@ class TIRFMSettings() :
                 print wave_length, 'nm'
 
 		# count photons
-		N_ph = TEff*I*self.get_Photons(wave_length, z)
+		N_ph = TEff*I*self.get_Photons(z, wave_length)
 
 		# Camera : Quantum Efficiency
                 N_b += N_ph*self.camera_blue[index]
@@ -725,6 +782,7 @@ class TIRFMSettings() :
 		N_pe += (N_b + N_g + N_r)
                 Norm += 1
 
+		# Point Spread Function (PSF)
                 if (self.fluorophore_type == 'Gaussian') :
 
                     I0 = 1.0
@@ -756,6 +814,45 @@ class TIRFMSettings() :
 	    if (j < 10) : print self.fluorophore_psf[j][0], self.fluorophore_rgb[j]
 
 
+#    def get_PSF(self, norm_array) :
+#
+#	norm_factor = sum(norm_array)
+#
+#	r = self.fluorophore_radial # in nm-scale
+#	z = self.fluorophore_depth  # in nm-scale
+#
+#	N = 60
+#	drho = 1.0/N
+#	rho = numpy.array([i*drho for i in range(N)])
+#
+#	NA = self.objective_NA
+#
+#	for i in range(len(self.fluorophore_wavelength)) :
+#
+#	    if (norm_array[i] is False) :
+#		continue
+#
+#	    wave_length = self.fluorophore_wavelength[i]
+#
+#	    print wave_length, 'nm'
+#
+#            k  = 2.0*numpy.pi/wave_length
+#            alpha = k*NA
+#            gamma = k*(NA/2)**2
+#	
+#	    J0 = map(lambda x : j0(x*alpha*rho), r)
+#	    Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+#
+#	    I  = numpy.array(map(lambda x : x*J0, Y))/float(norm_factor)
+#
+#	    I_sum = I.sum(axis=2)
+#            I_abs = map(lambda x : abs(x)**2, I_sum)
+#
+#	    self.fluorophore_psf += I_abs
+#
+#	    print float(norm_factor), self.fluorophore_psf[0][0]
+#
+
 
     def get_PSF(self, r, z, wave_length) :
 
@@ -768,25 +865,27 @@ class TIRFMSettings() :
 
         alpha = k*NA
         gamma = k*(NA/2)**2
-	
+
         J0 = map(lambda x : j0(x*alpha*rho), r)
-	Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
-	I  = numpy.array(map(lambda x : x*J0, Y))
-	I_sum = I.sum(axis=2)
+        Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+
+        I  = numpy.array(map(lambda x : x*J0, Y))
+
+        I_sum = I.sum(axis=2)
         I_abs = map(lambda x : abs(x)**2, I_sum)
 
-	self.fluorophore_psf += I_abs 
+        self.fluorophore_psf += I_abs
 
-#	for i in range(len(z)) :
-#
-#	    y = z[i]*gamma*rho**2
-#
-#	    for j in range(len(r)) :
-#
-#                J0 = numpy.array(j0(r[j]*alpha*rho))
-#                I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
-#
-#                self.fluorophore_psf[i][j] += abs(sum(I))**2
+	for i in range(len(z)) :
+
+	    y = z[i]*gamma*rho**2
+
+	    for j in range(len(r)) :
+
+                J0 = numpy.array(j0(r[j]*alpha*rho))
+                I  = 2*J0*numpy.exp(-2*y*1.j)*rho*drho
+
+                self.fluorophore_psf[i][j] += abs(sum(I))**2
 
 
 
@@ -1299,9 +1398,9 @@ class TIRFMVisualizer() :
     
     	    ######
     	    fig_qeff = pylab.figure()
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_red, color='red', label='Quantum Efficiency (Red)', linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_green, color='green', label='Quantum Efficiency (Green)', linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_blue, color='blue', label='Quantum Efficiency (Blue)', linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_red,   color='red',   label='QE (Red)',   linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_green, color='green', label='QE (Green)', linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
             pylab.axis([400, 1000, 0, 1.10])
             pylab.xlabel('Wave Length [nm]')
             pylab.ylabel('Quantum Efficiency')
