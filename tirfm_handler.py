@@ -608,43 +608,6 @@ class TIRFMSettings() :
 
 
 
-#    def get_Photons(self) :
-    def get_Photons(self, z, wave_length) :
-
-	#wave_length = self.fluorophore_wavelength
-	#z = self.fluorophore_depth # in nm scale 
-
-	# plank const * speed of light
-	hc = 2.00e-25 # J m
-
-	# single photon energy
-	E_wl = hc/(wave_length*1.0e-9)
-	area = numpy.pi*self.spatiocyte_VoxelRadius**2
-
-	# calculate the number of photons per voxel
-	N0 = (self.beam_intensity*1.0e+4/E_wl)*area*self.camera_exposure_time
-
-	N_pd = numpy.exp(-z/self.penetration_depth)
-	N_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
-
-	N_photons_in = N0*N_pd*N_fd
-	#N_photons_in =  numpy.array(map(lambda x : N0*x, N_pd*N_fd))
-
-	#################################################################
-	#
-	# Note : Adding Quantum mechanics of Photons to Molecules
-	#
-	#	Using random number generator to simulate
-	#	the energy transition of molecular vibrational states
-	#
-	#################################################################
-
-	N_photons_out = 1.0e-6*N_photons_in
-
-	return N_photons_out
-
-
-
     def set_depth(self, Magnitude) :
 
 	wave_length = self.beam_wavelength
@@ -682,61 +645,42 @@ class TIRFMSettings() :
 
 
 
-#    def set_PSF(self) :
-#
-#        r = self.fluorophore_radial # in nm-scale
-#        z = self.fluorophore_depth  # in nm-scale
-#
-#	# transmission efficiency
-#	I = self.fluoem_norm
-#        TEff = 1.0
-#
-#	if (self.dichroic_switch == True) :
-#	    TEff = TEff*0.01*self.dichroic_eff
-#
-#	if (self.emission_switch == True) :
-#	    TEff = TEff*0.01*self.emission_eff
-#
-#	# count photons
-#	N_ph = map(lambda x : I*TEff*x, self.get_Photons())
-#
-#	# Detector : Quantum Efficiency
-#	N_b  = map(lambda x : x*self.camera_blue,  N_ph)
-#	N_g  = map(lambda x : x*self.camera_green, N_ph)
-#	N_r  = map(lambda x : x*self.camera_red,   N_ph)
-#
-#	# count photoelectrons
-#	N_pe = sum(N_b + N_g + N_r)
-#	Norm_array  = map(lambda x : True if x > 1e-2 else False, N_pe)
-#	Norm_factor = sum(Norm_array)
-#
-#
-#	# Point Spread Function (PSF)
-#	if (self.fluorophore_type == 'Gaussian') :
-#
-#	    I0 = 1.0
-#	    Ir = numpy.exp(-0.5*(r/self.psf_width[0])**2)
-#	    Iz = numpy.exp(-0.5*(z/self.psf_width[1])**2)
-#
-#	    I = map(lambda x : I0*Ir*x/Norm_factor, Iz)
-#
-#	    self.fluorophore_psf += I
-#
-#
-#	elif (self.fluorophore_type == 'Point-like') :
-#
-#	    self.fluorophore_psf[0][0] += 1.00/Norm_factor
-#
-#	else :
-#
-#	    self.get_PSF(Norm_array)
-#
-#
-#	# Normalization
-#	#self.fluorophore_rgb = (N_r, N_g, N_b)
+    def get_Photons(self, z, wave_length) :
+
+        # plank const * speed of light
+        hc = 2.00e-25 # J m
+
+        # single photon energy
+        E_wl = hc/(wave_length*1.0e-9)
+        area = numpy.pi*self.spatiocyte_VoxelRadius**2
+
+        # calculate the number of photons per voxel
+        N0 = (self.beam_intensity*1.0e+4/E_wl)*area*self.camera_exposure_time
+
+        N_pd = numpy.exp(-z/self.penetration_depth)
+        N_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
+
+        #N_photons_in = N0*N_pd*N_fd
+        N_photons_in =  numpy.array(map(lambda x : N0*x, N_pd*N_fd))
+
+        #################################################################
+        #
+        # Note : Adding Quantum mechanics of Photons to Molecules
+        #
+        #       Using random number generator to simulate
+        #       the energy transition of molecular vibrational states
+        #
+        #################################################################
+
+        N_photons_out = 1.0e-6*N_photons_in
+
+        return N_photons_out
+
 
 
     def set_PSF(self) :
+
+        wave_length = self.fluorophore_wavelength
 
 	r = self.fluorophore_radial # in nm-scale
 	z = self.fluorophore_depth  # in nm-scale
@@ -752,30 +696,31 @@ class TIRFMSettings() :
             I = I*0.01*self.emission_eff
 
 
-	# Count the number of photons
-	N_b = N_g = N_r = 0
-	N_pe = 0
-	Norm = 0
+	# count photons
+	N_ph = map(lambda x : I*x, self.get_Photons(z, wave_length))
+
+	# Detector : Quantum Efficiency
+	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.camera_blue,  N_ph))
+	self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.camera_green, N_ph))
+	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.camera_red,   N_ph))
+
+	# count photoelectrons
+	N_b = sum(map(lambda x : x*self.camera_blue,  N_ph))
+	N_g = sum(map(lambda x : x*self.camera_green, N_ph))
+	N_r = sum(map(lambda x : x*self.camera_red,   N_ph))
+
+	# for Normalization
+	Norm_array  = map(lambda x : True if x > 1e-2 else False, N_ph[0])
+
 
 	for k in range(len(self.fluorophore_wavelength)) :
 
-                wave_length = self.fluorophore_wavelength[k]
+		wave_length = self.fluorophore_wavelength[k]
 
-                if (I[k] < 1e-4) :
+                if (Norm_array[k] is False) :
                     continue
 
                 print wave_length, 'nm'
-
-		# count photons
-		N_ph = I[k]*self.get_Photons(z, wave_length)
-
-		# Camera : Quantum Efficiency
-                N_b += N_ph*self.camera_blue[k]
-                N_g += N_ph*self.camera_green[k]
-                N_r += N_ph*self.camera_red[k]
-
-		N_pe += (N_b + N_g + N_r)
-                Norm += 1
 
 		# Point Spread Function (PSF)
                 if (self.fluorophore_type == 'Gaussian') :
@@ -784,9 +729,7 @@ class TIRFMSettings() :
                     Ir = numpy.exp(-0.5*(r/self.psf_width[0])**2)
                     Iz = numpy.exp(-0.5*(z/self.psf_width[1])**2)
 
-		    for j in range(len(z)) :
-
-			self.fluorophore_psf[j] += I0*Ir*Iz[j]
+		    self.fluorophore_psf += map(lambda x : I0*Ir*x, Iz)
 
 
 		elif (self.fluorophore_type == 'Point-like') :
@@ -797,61 +740,17 @@ class TIRFMSettings() :
 
                     self.get_PSF(r, z, wave_length)
 
-		#if (wave_length == 567) : break
 
 
 	# Normalization
-	for j in range(len(z)) :
+	Norm_factor = sum(Norm_array)
+	self.fluorophore_psf = self.fluorophore_psf/Norm_factor
 
-	    self.fluorophore_psf[j] = self.fluorophore_psf[j]/Norm
-	    self.fluorophore_rgb[j] = (N_r[j], N_g[j], N_b[j])
-
-	    if (j < 10) : print self.fluorophore_psf[j][0], self.fluorophore_rgb[j]
-
-
-#    def get_PSF(self, norm_array) :
-#
-#	norm_factor = sum(norm_array)
-#
-#	r = self.fluorophore_radial # in nm-scale
-#	z = self.fluorophore_depth  # in nm-scale
-#
-#	N = 60
-#	drho = 1.0/N
-#	rho = numpy.array([i*drho for i in range(N)])
-#
-#	NA = self.objective_NA
-#
-#	for i in range(len(self.fluorophore_wavelength)) :
-#
-#	    if (norm_array[i] is False) :
-#		continue
-#
-#	    wave_length = self.fluorophore_wavelength[i]
-#
-#	    print wave_length, 'nm'
-#
-#            k  = 2.0*numpy.pi/wave_length
-#            alpha = k*NA
-#            gamma = k*(NA/2)**2
-#	
-#	    J0 = map(lambda x : j0(x*alpha*rho), r)
-#	    Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
-#
-#	    I  = numpy.array(map(lambda x : x*J0, Y))/float(norm_factor)
-#
-#	    I_sum = I.sum(axis=2)
-#            I_abs = map(lambda x : abs(x)**2, I_sum)
-#
-#	    self.fluorophore_psf += I_abs
-#
-#	    print float(norm_factor), self.fluorophore_psf[0][0]
-#
 
 
     def get_PSF(self, r, z, wave_length) :
 
-        N = 50
+        N = 100
         drho = 1.0/N
         rho = numpy.array([i*drho for i in range(N)])
 
