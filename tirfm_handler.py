@@ -710,7 +710,7 @@ class TIRFMSettings() :
 	N_r = sum(map(lambda x : x*self.camera_red,   N_ph))
 
 	# for Normalization
-	Norm_array  = map(lambda x : True if x > 1e-2 else False, N_ph[0])
+	norm = map(lambda x : True if x > 1e-2 else False, N_ph[0])
 
 	# Point Spread Function
 	if (self.fluorophore_type == 'Gaussian') :
@@ -733,47 +733,93 @@ class TIRFMSettings() :
 
 	else :
 
-	    for k in range(len(self.fluorophore_wavelength)) :
+	    # make the norm and wave_length array shorter
+	    re_wavelength = []
 
-		wave_length = self.fluorophore_wavelength[k]
+	    for i in range(len(norm)) :
 
-		if (Norm_array[k] is False) :
-		     continue
+		if norm[i] is True :
+		    re_wavelength.append(wave_length[i])
 
-		print wave_length, 'nm'
+	    self.get_PSF(r, z, numpy.array(re_wavelength))
 
-		self.get_PSF(r, z, wave_length)
+#	    for k in range(len(self.fluorophore_wavelength)) :
+#
+#		wave_length = self.fluorophore_wavelength[k]
+#
+#		if (Norm_array[k] is False) :
+#		     continue
+#
+#		print wave_length, 'nm'
+#
+#		self.get_PSF(r, z, wave_length)
 
 
 
 	# Normalization
-	Norm_factor = sum(Norm_array)
-	self.fluorophore_psf = self.fluorophore_psf/Norm_factor
+	self.fluorophore_psf = self.fluorophore_psf/sum(norm)
 
 
 
     def get_PSF(self, r, z, wave_length) :
 
 	NA = self.objective_NA
-        N = 100
-        drho = 1.0/N
-        rho = numpy.array([i*drho for i in range(N)])
+	N = 100
+	drho = 1.0/N
+	rho = numpy.array([i*drho for i in range(N)])
 
-        k = 2.0*numpy.pi/wave_length
+	k = 2.0*numpy.pi/wave_length
 	alpha = k*NA
 	gamma = k*(NA/2)**2
 
-	J0 = map(lambda x : j0(x*alpha*rho), r)
-	Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+	J0 = map(lambda y : map(lambda x : j0(x*y*rho), r), alpha)
+	Y  = map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma)
+	I  = [map(lambda x : x*J0[i], Y[i]) for i in range(len(wave_length))]
 
-	I  = numpy.array(map(lambda x : x*J0, Y))
+	print I[50][0]
 
-	I_sum = I.sum(axis=2)
-	I_abs = map(lambda x : abs(x)**2, I_sum)
+#	for i in range(len(wave_length)) :
+#
+#	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
+#	    I_sum = I.sum(axis=2)
+#	    I_abs = map(lambda x : abs(x)**2, I_sum)
+#
+#	    self.fluorophore_psf += I_abs
+#
+#	    print wave_length[i], I_abs[0][0]
 
-	self.fluorophore_psf += I_abs
 
-	print I_abs[0][0]
+#	I_sum = I.sum(axis=2)
+#	I_abs = map(lambda x : abs(x)**2, I_sum)
+#
+#	self.fluorophore_psf += I_abs
+
+	exit()
+
+
+
+#    def get_PSF(self, r, z, wave_length) :
+#
+#	NA = self.objective_NA
+#        N = 100
+#        drho = 1.0/N
+#        rho = numpy.array([i*drho for i in range(N)])
+#
+#        k = 2.0*numpy.pi/wave_length
+#	alpha = k*NA
+#	gamma = k*(NA/2)**2
+#
+#	J0 = map(lambda x : j0(x*alpha*rho), r)
+#	Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+#
+#	I  = numpy.array(map(lambda x : x*J0, Y))
+#
+#	I_sum = I.sum(axis=2)
+#	I_abs = map(lambda x : abs(x)**2, I_sum)
+#
+#	self.fluorophore_psf += I_abs
+#
+#	print I_abs[0][0]
 
 
 
