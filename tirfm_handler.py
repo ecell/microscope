@@ -700,9 +700,9 @@ class TIRFMSettings() :
 	N_ph = map(lambda x : I*x, self.get_Photons(z, wave_length))
 
 	# Detector : Quantum Efficiency
-	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.camera_blue,  N_ph))
+	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.camera_blue,  N_ph))
 	self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.camera_green, N_ph))
-	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.camera_red,   N_ph))
+	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.camera_red,   N_ph))
 
 	# count photoelectrons
 	N_b = sum(map(lambda x : x*self.camera_blue,  N_ph))
@@ -764,9 +764,9 @@ class TIRFMSettings() :
     def get_PSF(self, r, z, wave_length) :
 
 	NA = self.objective_NA
-	N = 80
+	N = 50
 	drho = 1.0/N
-	rho = numpy.array([i*drho for i in range(N)])
+	rho = numpy.array([(i+1)*drho for i in range(N)])
 
 	k = 2.0*numpy.pi/wave_length
 	alpha = k*NA
@@ -774,25 +774,32 @@ class TIRFMSettings() :
 
 	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
 	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
-	#I  = [map(lambda x : x*J0[i], Y[i]) for i in range(len(wave_length))]
+	#I = numpy.array(map(lambda c0, c1 : map(lambda b : map(lambda a : 2*j0(a*c0*rho)*numpy.exp(-2*1.j*b*c1*rho**2)*rho*drho, r), z), alpha, gamma))
+	I  = numpy.array([numpy.array(map(lambda x : x*J0[i], Y[i])) for i in range(len(wave_length))])
+	#I.sum(axis=3)
+	I_abs = map(lambda x : abs(x)**2, I.sum(axis=3))
+	self.fluorophore_psf = sum(I_abs)
 
-	for i in range(len(wave_length)) :
+	print self.fluorophore_psf[0]
 
-	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
-	    I_sum = I.sum(axis=2)
-	    I_abs = map(lambda x : abs(x)**2, I_sum)
+#	for i in range(len(wave_length)) :
+#
+#	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
+#	    I_sum = I.sum(axis=2)
+#	    I_abs = map(lambda x : abs(x)**2, I_sum)
+#
+#	    self.fluorophore_psf += I_abs
+#
+#	    print wave_length[i], I_abs[0][0]
 
-	    self.fluorophore_psf += I_abs
-
-	    print wave_length[i], I_abs[0][0]
-
-
+#       J0 = map(lambda x : j0(x*alpha*rho), r)
+#       Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
+#       I  = numpy.array(map(lambda x : x*J0, Y))
+#
 #	I_sum = I.sum(axis=2)
 #	I_abs = map(lambda x : abs(x)**2, I_sum)
 #
 #	self.fluorophore_psf += I_abs
-
-	#exit()
 
 
 
