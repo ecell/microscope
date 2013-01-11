@@ -774,23 +774,23 @@ class TIRFMSettings() :
 
 	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
 	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
-	#I = numpy.array(map(lambda c0, c1 : map(lambda b : map(lambda a : 2*j0(a*c0*rho)*numpy.exp(-2*1.j*b*c1*rho**2)*rho*drho, r), z), alpha, gamma))
-	I  = numpy.array([numpy.array(map(lambda x : x*J0[i], Y[i])) for i in range(len(wave_length))])
-	#I.sum(axis=3)
-	I_abs = map(lambda x : abs(x)**2, I.sum(axis=3))
-	self.fluorophore_psf = sum(I_abs)
+#	I = numpy.array(map(lambda c0, c1 : map(lambda b : map(lambda a : 2*j0(a*c0*rho)*numpy.exp(-2*1.j*b*c1*rho**2)*rho*drho, r), z), alpha, gamma))
+#	I  = numpy.array([numpy.array(map(lambda x : x*J0[i], Y[i])) for i in range(len(wave_length))])
+#	#I.sum(axis=3)
+#	I_abs = map(lambda x : abs(x)**2, I.sum(axis=3))
+#	self.fluorophore_psf = sum(I_abs)
+#
+#	print self.fluorophore_psf[0]
 
-	print self.fluorophore_psf[0]
+	for i in range(len(wave_length)) :
 
-#	for i in range(len(wave_length)) :
-#
-#	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
-#	    I_sum = I.sum(axis=2)
-#	    I_abs = map(lambda x : abs(x)**2, I_sum)
-#
-#	    self.fluorophore_psf += I_abs
-#
-#	    print wave_length[i], I_abs[0][0]
+	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
+	    I_sum = I.sum(axis=2)
+	    I_abs = map(lambda x : abs(x)**2, I_sum)
+
+	    self.fluorophore_psf += I_abs
+
+	    print wave_length[i], I_abs[0][0]
 
 #       J0 = map(lambda x : j0(x*alpha*rho), r)
 #       Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
