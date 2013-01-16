@@ -129,8 +129,8 @@ camera_exposure_time  = 0.033
 camera_fps = 1 #5-30
 camera_sat_charge = 30000.
 camera_ADC_bit   = 16
-camera_ADC_const = 1.00
-camera_ADC_offset = 2000
+camera_ADC_const = 5.80
+camera_ADC_offset = 5000
 
 camera_readout = 0.0
 camera_dark_current = 0.0
