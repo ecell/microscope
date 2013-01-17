@@ -716,8 +716,8 @@ class TIRFMSettings() :
 	if (self.fluorophore_type == 'Gaussian') :
 
             I0 = 1.0
-            Ir = sum(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), Norm_array))
-            Iz = sum(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), Norm_array))
+            Ir = sum(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm))
+            Iz = sum(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm))
 
 	    self.fluorophore_psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
 
@@ -725,8 +725,8 @@ class TIRFMSettings() :
         elif (self.fluorophore_type == 'Point-like') :
 
             I0 = 1.0
-            Ir = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, r)), Norm_array))
-            Iz = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, z)), Norm_array))
+            Ir = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, r)), norm))
+            Iz = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, z)), norm))
 
             self.fluorophore_psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
 
@@ -764,7 +764,7 @@ class TIRFMSettings() :
     def get_PSF(self, r, z, wave_length) :
 
 	NA = self.objective_NA
-	N = 50
+	N = 80
 	drho = 1.0/N
 	rho = numpy.array([(i+1)*drho for i in range(N)])
 
@@ -774,10 +774,11 @@ class TIRFMSettings() :
 
 	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
 	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
-#	I = numpy.array(map(lambda c0, c1 : map(lambda b : map(lambda a : 2*j0(a*c0*rho)*numpy.exp(-2*1.j*b*c1*rho**2)*rho*drho, r), z), alpha, gamma))
+
 #	I  = numpy.array([numpy.array(map(lambda x : x*J0[i], Y[i])) for i in range(len(wave_length))])
-#	#I.sum(axis=3)
-#	I_abs = map(lambda x : abs(x)**2, I.sum(axis=3))
+#	I_sum = I.sum(axis=3)
+#	I_abs = map(lambda x : abs(x)**2, I_sum))
+#
 #	self.fluorophore_psf = sum(I_abs)
 #
 #	print self.fluorophore_psf[0]
@@ -851,13 +852,17 @@ class TIRFMSettings() :
 
             QEff = self.camera_green[index]
 
-	    for i in range(len(self.photon_number)) :
-		# signal
-		signal = self.photon_number[i]
+	    # get SNR and relative SNR
+	    self.absolute_snr[j] = (QEff*self.photon_number)/map(lambda x : self.get_Noise(QEff*x), self.photon_number)
+	    self.relative_snr[j] = map(lambda x, y : x/y, self.absolute_snr[j], self.ideal_snr)
 
-		# get SNR and relative SNR
-		self.absolute_snr[j][i] = (QEff*signal)/self.get_Noise(QEff*signal)
-		self.relative_snr[j][i] = self.absolute_snr[j][i]/self.ideal_snr[i]
+#	    for i in range(len(self.photon_number)) :
+#		# signal
+#		signal = self.photon_number[i]
+#
+#		# get SNR and relative SNR
+#		self.absolute_snr[j][i] = (QEff*signal)/self.get_Noise(QEff*signal)
+#		self.relative_snr[j][i] = self.absolute_snr[j][i]/self.ideal_snr[i]
 
 
 
@@ -891,7 +896,7 @@ class TIRFMVisualizer() :
                 Mag  = self.settings.objective_mag*self.settings.tubelens_mag
                 zoom = self.settings.camera_zoom
 
-                self.image_scaling = (view/Mag)*zoom
+                self.image_scaling = view/(Mag*zoom)
 
                 """
                 Focal and Penetration Depth
@@ -1127,9 +1132,7 @@ class TIRFMVisualizer() :
 
 		for i in range(len(p0)) :
 
-		    x_i = p0[i][0]
-		    y_i = p0[i][1]
-		    z_i = p0[i][2]
+		    x_i, y_i, z_i = p0[i]
 
 		    r = numpy.sqrt((z - z_i)**2 + (y - y_i)**2)
 		    d = abs(x - x_i)
@@ -1141,30 +1144,24 @@ class TIRFMVisualizer() :
                     d = d*(2.0*voxel_radius*self.image_scaling/1e-9)
 
 		    # get signal
-		    if (int(d) < len(self.settings.fluorophore_depth) and
+		    if (int(d) < len(self.settings.fluorophore_depth)  and
 		        int(r) < len(self.settings.fluorophore_radial) and
 		        int(r) < self.settings.pinhole_radius) :
 
 			N_pe = self.settings.fluorophore_rgb[int(d)]
 
-		        signal[0] += N_pe[0]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
-		        signal[1] += N_pe[1]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
-		        signal[2] += N_pe[2]*gain*self.settings.fluorophore_psf[int(d)][int(r)]
+		        signal += N_pe*gain*self.settings.fluorophore_psf[int(d)][int(r)]
 
 		# get noise
-		noise = [self.settings.get_Noise(signal[i]) for i in range(3)]
+		noise = numpy.array(map(lambda x : self.settings.get_Noise(x), signal))
 
-		# random generator
-		#I_signal = numpy.random.poisson(signal, None)
-		#I_noise  = numpy.random.poisson(noise,  None)
+		signal += noise
 
-		#I = I_signal + I_noise
-		#I = signal
-
-                # convert photoelectron to ADC values(Grayscale)
+                # convert photoelectron to ADC counts(Grayscale)
                 k = self.settings.camera_ADC_const
                 ADC0 = self.settings.camera_ADC_offset
-                ADC  = k*signal + ADC0
+
+                ADC = numpy.random.poisson(signal/k + ADC0, None)
 
                 # Rescale to 8-bit
                 ADC = ADC*(2.0**8-1)/(2.0**self.settings.camera_ADC_bit-1)
@@ -1206,36 +1203,36 @@ class TIRFMVisualizer() :
                         l_id = map(lambda x : x[2], frame_data[i][j][1])
 
 			for k in range(len(c_id)) :
-			  # Raf(Membrane)
-			  #if (s_id[k] != 34) :
-			  # ERK-pp
-			  #if (s_id[k] == 3 or s_id[k] == 41) :
-			  #if (s_id[k] == 6 or s_id[k] == 12) :
-			  # ERK-all
-			  #if (s_id[k] != 37 or s_id[k] != 38 or s_id[k] != 44) :
-			  #if (s_id[k] != 0 or s_id[k] != 1 or s_id[k] != 15) :
+			    # Raf(Membrane)
+			    #if (s_id[k] != 34) :
+			    # ERK-pp
+			    #if (s_id[k] == 3 or s_id[k] == 41) :
+			    #if (s_id[k] == 6 or s_id[k] == 12) :
+			    # ERK-all
+			    #if (s_id[k] != 37 or s_id[k] != 38 or s_id[k] != 44) :
+			    #if (s_id[k] != 0 or s_id[k] != 1 or s_id[k] != 15) :
 
-			    # particles coordinate in real(nm) scale
-                            x, y, z = self._get_coordinate(c_id[k])
+				# particles coordinate in real(nm) scale
+                        	x, y, z = self._get_coordinate(c_id[k])
 
-			    # convert voxel-# to pixel scale
-			    scaled_x = int(x/self.image_scaling) + self.img_min[0]
-			    scaled_z = int(z/self.image_scaling) + self.img_min[2]
-			    scaled_y = int(y/self.image_scaling) + self.img_min[1]
+				# convert voxel-# to pixel scale
+				scaled_x = int(x/self.image_scaling) + self.img_min[0]
+				scaled_z = int(z/self.image_scaling) + self.img_min[2]
+				scaled_y = int(y/self.image_scaling) + self.img_min[1]
 
-			    pos = (scaled_x, scaled_y, scaled_z)
+				pos = (scaled_x, scaled_y, scaled_z)
 
-			    # get new-position
-			    #pos = self.get_position(pos)
-			    #print pos, '-->', self.get_position(pos)
+				# rotation and get new-position
+				#pos = self.get_position(pos)
+				#print pos, '-->', self.get_position(pos)
 
-			    #if (scaled_x < self.img_width  and scaled_x > 0 and
-			    if (scaled_z < self.img_width  and scaled_z > 0 and
-			    	scaled_y < self.img_height and scaled_y > 0 ) :
+				#if (scaled_x < self.img_width  and scaled_x > 0 and
+				if (scaled_z < self.img_width  and scaled_z > 0 and
+				    scaled_y < self.img_height and scaled_y > 0 ) :
 
-				p0.append(pos)
+					p0.append(pos)
 
-		    #####
+		    ##### Optimization here
 		    focal_x = self.settings.camera_focal_point[0]
 		    ix = (self.img_max[0] - self.img_min[0])*focal_x
 
@@ -1346,69 +1343,69 @@ class TIRFMVisualizer() :
             pylab.title('Camera : ' + self.settings.camera_type)
     	    pp.savefig(fig_qeff)
 
-#            ###### SNR
-#            self.settings.set_SNR()
-#    
-#    	    ###### SNR (wave_length)
-#    	    index = int(wave_length) - self.settings.fluorophore_wavelength[0]
-#    
-#            fig_snr_wl= pylab.figure()
-#            pylab.loglog(self.settings.photon_number, self.settings.absolute_snr[index])
-#            pylab.plot(self.settings.photon_number, self.settings.ideal_snr, color='purple', label='Perfect', linewidth=2)
-#            pylab.plot(self.settings.photon_number, self.settings.absolute_snr[index], color='red', label='SNR', linewidth=2)
-#    
-#            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], 0.01, self.settings.ideal_snr[-1]])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('SNR')
-#            pylab.title('%d nm' % (int(wave_length)))
-#            pp.savefig(fig_snr_wl)
-#    
-#            ###### Relative SNR (wave_length)
-#            fig_rsnr_wl= pylab.figure()
-#            pylab.semilogx(self.settings.photon_number)
-#            pylab.plot(self.settings.photon_number, self.settings.ideal_relsnr, color='purple', label='Perfect', linewidth=2)
-#            pylab.plot(self.settings.photon_number, self.settings.relative_snr[index], color='red', label='SNR', linewidth=2)
-#    
-#            pylab.axis([1, self.settings.photon_number[-1], 0, 1.10])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('Relative SNR')
-#            pylab.title('%d nm' % (wave_length))
-#            pp.savefig(fig_rsnr_wl)
-#    
-#            ###### SNR (Contour)
-#            fig_snr = pylab.figure()
-#            pylab.semilogx(self.settings.photon_number)
-#    
-#            snr_scale = numpy.linspace(0, self.settings.ideal_snr[-1], 21, endpoint=True)
-#    	    X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
-#    
-#            pylab.contour(X, Y, self.settings.absolute_snr,  snr_scale, linewidth=0.1, color='k')
-#            pylab.contourf(X, Y, self.settings.absolute_snr, snr_scale, cmap=pylab.cm.jet)
-#    
-#    	    pylab.colorbar(ticks=snr_scale)
-#            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-#    		self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('Wave length [nm]')
-#            pylab.title('SNR')
-#            pp.savefig(fig_snr)
-#    
-#            ###### Relative SNR (Contour)
-#            fig_rsnr = pylab.figure()
-#            pylab.semilogx(self.settings.photon_number)
-#    
-#            rsnr_scale = numpy.linspace(0, 1, 21, endpoint=True)
-#            X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
-#            pylab.contour(X, Y, self.settings.relative_snr,  rsnr_scale, linewidth=0.1, color='k')
-#            pylab.contourf(X, Y, self.settings.relative_snr, rsnr_scale, cmap=pylab.cm.jet)
-#    
-#    	    pylab.colorbar(ticks=rsnr_scale)
-#            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-#                    self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('Wave length [nm]')
-#            pylab.title('Relative SNR')
-#            pp.savefig(fig_rsnr)
+            ###### SNR
+            self.settings.set_SNR()
+    
+    	    ###### SNR (wave_length)
+    	    index = int(wave_length) - self.settings.fluorophore_wavelength[0]
+    
+            fig_snr_wl= pylab.figure()
+            pylab.loglog(self.settings.photon_number, self.settings.absolute_snr[index])
+            pylab.plot(self.settings.photon_number, self.settings.ideal_snr, color='purple', label='Perfect', linewidth=2)
+            pylab.plot(self.settings.photon_number, self.settings.absolute_snr[index], color='red', label='SNR', linewidth=2)
+    
+            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], 0.01, self.settings.ideal_snr[-1]])
+            pylab.xlabel('Input Signal [photons/pixel]')
+            pylab.ylabel('SNR')
+            pylab.title('%d nm' % (int(wave_length)))
+            pp.savefig(fig_snr_wl)
+    
+            ###### Relative SNR (wave_length)
+            fig_rsnr_wl= pylab.figure()
+            pylab.semilogx(self.settings.photon_number)
+            pylab.plot(self.settings.photon_number, self.settings.ideal_relsnr, color='purple', label='Perfect', linewidth=2)
+            pylab.plot(self.settings.photon_number, self.settings.relative_snr[index], color='red', label='SNR', linewidth=2)
+    
+            pylab.axis([1, self.settings.photon_number[-1], 0, 1.10])
+            pylab.xlabel('Input Signal [photons/pixel]')
+            pylab.ylabel('Relative SNR')
+            pylab.title('%d nm' % (wave_length))
+            pp.savefig(fig_rsnr_wl)
+    
+            ###### SNR (Contour)
+            fig_snr = pylab.figure()
+            pylab.semilogx(self.settings.photon_number)
+    
+            snr_scale = numpy.linspace(0, self.settings.ideal_snr[-1], 21, endpoint=True)
+    	    X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
+    
+            pylab.contour(X, Y, self.settings.absolute_snr,  snr_scale, linewidth=0.1, color='k')
+            pylab.contourf(X, Y, self.settings.absolute_snr, snr_scale, cmap=pylab.cm.jet)
+    
+    	    pylab.colorbar(ticks=snr_scale)
+            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
+    		self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
+            pylab.xlabel('Input Signal [photons/pixel]')
+            pylab.ylabel('Wave length [nm]')
+            pylab.title('SNR')
+            pp.savefig(fig_snr)
+    
+            ###### Relative SNR (Contour)
+            fig_rsnr = pylab.figure()
+            pylab.semilogx(self.settings.photon_number)
+    
+            rsnr_scale = numpy.linspace(0, 1, 21, endpoint=True)
+            X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
+            pylab.contour(X, Y, self.settings.relative_snr,  rsnr_scale, linewidth=0.1, color='k')
+            pylab.contourf(X, Y, self.settings.relative_snr, rsnr_scale, cmap=pylab.cm.jet)
+    
+    	    pylab.colorbar(ticks=rsnr_scale)
+            pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
+                    self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
+            pylab.xlabel('Input Signal [photons/pixel]')
+            pylab.ylabel('Wave length [nm]')
+            pylab.title('Relative SNR')
+            pp.savefig(fig_rsnr)
     
     	    pp.close()
     
