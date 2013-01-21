@@ -12,7 +12,23 @@ import scipy
 import numpy 
         
 from scipy.special import j0
+from scipy.integrate import quad
 
+def integrand(rho, r, z, wave_length) :
+
+	NA = 1.49
+        k = 2.0*scipy.pi/wave_length
+        alpha = k*NA
+        gamma = k*(NA/2)**2
+
+	func = 2*j0(r*alpha*rho)*scipy.exp(-2*1.j*z*gamma*rho**2)*rho
+
+	return func
+
+
+def psfint(r, z, wave_length) :
+
+	return abs(quad(integrand, 0, 1, args=(r, z, wave_length))[0])**2
 
 
 def get_PSF(r, z, wave_length) :
@@ -49,5 +65,7 @@ if __name__ == "__main__":
 	z = numpy.array([1.0*i for i in range(1000)])
 	wave_length = numpy.array([i for i in range(300, 1000)])
 
-	get_PSF(r, z, wave_length)
+	result = map(lambda x : psfint(x, 0, 600), r)
+	print result
+	#get_PSF(r, z, wave_length)
 
