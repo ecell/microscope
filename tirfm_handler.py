@@ -54,7 +54,7 @@ class TIRFMSettings() :
 	Emission Filter
 	Pinhole
 	Tube Lenz
-	Camera
+	Detector
     '''
 
     def __init__(self, user_settings_dict = None):
@@ -99,7 +99,6 @@ class TIRFMSettings() :
 
     def set_IncidentBeam(self,  wave_length = None,
                                 intensity = None,
-                                pinhole_radius = None,
                                 excitation = None ) :
 
         print '--- Incident Beam Condition :'
@@ -107,11 +106,9 @@ class TIRFMSettings() :
         self._set_data('beam_switch', True)
         self._set_data('beam_wavelength', wave_length)
         self._set_data('beam_intensity', intensity)
-        self._set_data('beam_pinhole_radius', pinhole_radius)
 
         print '\tWave Length = ', self.beam_wavelength, 'nm'
         print '\tIntensity   = ', self.beam_intensity, 'W/cm^2 (=joule/sec cm^2)'
-        print '\tPinhole Radius = ', self.beam_pinhole_radius, 'nm'
 
 
         if (excitation == None) :
@@ -386,7 +383,7 @@ class TIRFMSettings() :
 
 
 
-    def set_Pinhole(self, radius) :
+    def set_Pinhole(self, radius = None) :
 
 	print '--- Pinhole :'
 
@@ -395,7 +392,7 @@ class TIRFMSettings() :
         print '\tRadius = ', self.pinhole_radius, 'nm'
 
 
-    def set_Camera(self, camera = None,
+    def set_Detector(self, detector = None,
 		   image_size = None,
                    pixel_length= None,
                    focal_point = None,
@@ -415,11 +412,11 @@ class TIRFMSettings() :
 		   emgain = None
                    ):
 
-        print '--- Camera :'
+        print '--- Detector :'
 
         
         try:
-	    filename = './catalog/camera/' + camera + '.csv'
+	    filename = './catalog/detector/' + detector + '.csv'
 
             csvfile = open(filename)
             lines = csvfile.readlines()
@@ -427,80 +424,80 @@ class TIRFMSettings() :
             header = lines[0:12]
             data   = lines[13:]
 
-            camera_header = []
-            camera_QEdata = []
+            detector_header = []
+            detector_QEdata = []
 
             for i in range(len(header)) :
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
-                camera_header.append(a_data)
+                detector_header.append(a_data)
                 #print '\t', a_data
 
-	    image_size	 = (int(camera_header[5][1]), int(camera_header[5][1]))
-	    pixel_length = float(camera_header[6][1])
-	    sat_charge   = float(camera_header[7][1])
-	    readout	 = float(camera_header[8][1])
-	    dark_current = float(camera_header[9][1])
-	    excess	 = float(camera_header[10][1])
-	    emgain	 = float(camera_header[11][1])
+	    image_size	 = (int(detector_header[5][1]), int(detector_header[5][1]))
+	    pixel_length = float(detector_header[6][1])
+	    sat_charge   = float(detector_header[7][1])
+	    readout	 = float(detector_header[8][1])
+	    dark_current = float(detector_header[9][1])
+	    excess	 = float(detector_header[10][1])
+	    emgain	 = float(detector_header[11][1])
 
             for i in range(len(data)) :
                 dummy0 = data[i].split('\r\n')
                 a_data = dummy0[0].split(',')
-                camera_QEdata.append(a_data)
+                detector_QEdata.append(a_data)
 
-	    self.camera_blue  = self.set_efficiency(camera_QEdata, 1)
-	    self.camera_green = self.set_efficiency(camera_QEdata, 2)
-	    self.camera_red   = self.set_efficiency(camera_QEdata, 3)
+	    self.detector_blue  = self.set_efficiency(detector_QEdata, 1)
+	    self.detector_green = self.set_efficiency(detector_QEdata, 2)
+	    self.detector_red   = self.set_efficiency(detector_QEdata, 3)
 
 
 
         except Exception:
 
 	    print 'Error : ', filename, ' file is NOT found'
-	    print '\tUse Perfect camera (Noise free)\n'
+	    print '\tUse Perfect detector (Noise free)\n'
 
-	    camera = 'Perfect'
+	    detector = 'Perfect'
             #exit()
 
-        self._set_data('camera_switch', True)
-        self._set_data('camera_type', camera)
-        self._set_data('camera_image_size', image_size)
-        self._set_data('camera_pixel_length', pixel_length)
-        self._set_data('camera_focal_point', focal_point)
-        self._set_data('camera_base_position', base_position)
-        self._set_data('camera_zoom', zoom)
-        self._set_data('camera_start_time', start_time)
-        self._set_data('camera_end_time', end_time)
-        self._set_data('camera_fps', fps)
-        self._set_data('camera_exposure_time', exposure_time)
-        self._set_data('camera_sat_charge', sat_charge)
-        self._set_data('camera_ADC_bit', ADC_bit)
-        self._set_data('camera_ADC_const', ADC_const)
-        self._set_data('camera_ADC_offset', ADC_offset)
-        self._set_data('camera_dark_current', dark_current)
-        self._set_data('camera_readout', readout)
-        self._set_data('camera_excess', excess)
-        self._set_data('camera_emgain', emgain)
+        self._set_data('detector_switch', True)
+        self._set_data('detector_type', detector)
+        self._set_data('detector_image_size', image_size)
+        self._set_data('detector_pixel_length', pixel_length)
+        self._set_data('detector_focal_point', focal_point)
+        self._set_data('detector_base_position', base_position)
+        self._set_data('detector_zoom', zoom)
+        self._set_data('detector_start_time', start_time)
+        self._set_data('detector_end_time', end_time)
+        self._set_data('detector_fps', fps)
+        self._set_data('detector_exposure_time', exposure_time)
+        self._set_data('detector_sat_charge', sat_charge)
+        self._set_data('detector_ADC_bit', ADC_bit)
+        self._set_data('detector_ADC_const', ADC_const)
+        self._set_data('detector_ADC_offset', ADC_offset)
+        self._set_data('detector_dark_current', dark_current)
+        self._set_data('detector_readout', readout)
+        self._set_data('detector_excess', excess)
+        self._set_data('detector_emgain', emgain)
 
-	print '\tCamera Type : ', self.camera_type
-        print '\tImage Size  = ', self.camera_image_size[0], 'x', self.camera_image_size[1]
-        print '\tPixel Size  = ', self.camera_pixel_length, 'm/pixel'
-        print '\tFocal Point = ', self.camera_focal_point
-        print '\tPosition    = ', self.camera_base_position
-        print '\tZoom	     = ', self.camera_zoom
-        print '\tStart Time  = ', self.camera_start_time, 'sec'
-        print '\tEnd   Time  = ', self.camera_end_time, 'sec'
-        print '\tFrame Rate  = ', self.camera_fps, 'frames/sec'
-        print '\tExposure Time = ', self.camera_exposure_time, 'sec'
-        print '\tSat. Charge   = ', self.camera_sat_charge, 'electron'
-        print '\tA/D Converter = ', self.camera_ADC_bit, 'bit'
-        print '\tADC Const  = ', self.camera_ADC_const, 'ADC count/electron'
-        print '\tADC Offset = ', self.camera_ADC_offset, 'ADC count'
-        print '\tDark Current = ', self.camera_dark_current
-        print '\tReadout = ', self.camera_readout
-        print '\tExcess	 = ', self.camera_excess
-        print '\tEM gain = ', self.camera_emgain
+	print '\tCamera Type : ', self.detector_type
+        print '\tImage Size  = ', self.detector_image_size[0], 'x', self.detector_image_size[1]
+        print '\tPixel Size  = ', self.detector_pixel_length, 'm/pixel'
+        print '\tFocal Point = ', self.detector_focal_point
+        print '\tPosition    = ', self.detector_base_position
+        print '\tZoom	     = ', self.detector_zoom
+        print '\tStart Time  = ', self.detector_start_time, 'sec'
+        print '\tEnd   Time  = ', self.detector_end_time, 'sec'
+        print '\tFrame Rate  = ', self.detector_fps, 'frames/sec'
+        print '\tExposure Time = ', self.detector_exposure_time, 'sec'
+        print '\tSat. Charge   = ', self.detector_sat_charge, 'electron'
+        print '\tA/D Converter = ', self.detector_ADC_bit, 'bit'
+        print '\tADC Const  = ', self.detector_ADC_const, 'electron/ADC count'
+        print '\tADC Offset = ', self.detector_ADC_offset, 'ADC count'
+        print '\tDark Current = ', self.detector_dark_current
+        print '\tReadout = ', self.detector_readout
+        print '\tExcess	 = ', self.detector_excess
+        print '\tEM gain = ', self.detector_emgain
 
 
 
@@ -654,13 +651,12 @@ class TIRFMSettings() :
         E_wl = hc/(wave_length*1.0e-9)
         area = numpy.pi*self.spatiocyte_VoxelRadius**2
 
-        # calculate the number of photons per voxel
-        N0 = (self.beam_intensity*1.0e+4/E_wl)*area*self.camera_exposure_time
+        # calculate the number of photons/sec
+        N0 = (self.beam_intensity*1.0e+4/E_wl)*area
 
         N_pd = numpy.exp(-z/self.penetration_depth)
         N_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
 
-        #N_photons_in = N0*N_pd*N_fd
         N_photons_in =  numpy.array(map(lambda x : N0*x, N_pd*N_fd))
 
         #################################################################
@@ -673,6 +669,13 @@ class TIRFMSettings() :
         #################################################################
 
         N_photons_out = 1.0e-6*N_photons_in
+
+
+
+        #################################################################
+
+        # calculate the number of photons out
+	N_photons_out = N_photons_out*self.detector_exposure_time
 
         return N_photons_out
 
@@ -695,19 +698,18 @@ class TIRFMSettings() :
         if (self.emission_switch == True) :
             I = I*0.01*self.emission_eff
 
-
 	# count photons
 	N_ph = map(lambda x : I*x, self.get_Photons(z, wave_length))
 
 	# Detector : Quantum Efficiency
-	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.camera_blue,  N_ph))
-	self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.camera_green, N_ph))
-	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.camera_red,   N_ph))
+	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.detector_blue,  N_ph))
+	self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.detector_green, N_ph))
+	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.detector_red,   N_ph))
 
 	# count photoelectrons
-	N_b = sum(map(lambda x : x*self.camera_blue,  N_ph))
-	N_g = sum(map(lambda x : x*self.camera_green, N_ph))
-	N_r = sum(map(lambda x : x*self.camera_red,   N_ph))
+	N_b = sum(map(lambda x : x*self.detector_blue,  N_ph))
+	N_g = sum(map(lambda x : x*self.detector_green, N_ph))
+	N_r = sum(map(lambda x : x*self.detector_red,   N_ph))
 
 	# for Normalization
 	norm = map(lambda x : True if x > 1e-2 else False, N_ph[0])
@@ -743,18 +745,6 @@ class TIRFMSettings() :
 
 	    self.get_PSF(r, z, numpy.array(re_wavelength))
 
-#	    for k in range(len(self.fluorophore_wavelength)) :
-#
-#		wave_length = self.fluorophore_wavelength[k]
-#
-#		if (Norm_array[k] is False) :
-#		     continue
-#
-#		print wave_length, 'nm'
-#
-#		self.get_PSF(r, z, wave_length)
-
-
 
 	# Normalization
 	self.fluorophore_psf = self.fluorophore_psf/sum(norm)
@@ -774,14 +764,6 @@ class TIRFMSettings() :
 
 	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
 	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
-
-#	I  = numpy.array([numpy.array(map(lambda x : x*J0[i], Y[i])) for i in range(len(wave_length))])
-#	I_sum = I.sum(axis=3)
-#	I_abs = map(lambda x : abs(x)**2, I_sum))
-#
-#	self.fluorophore_psf = sum(I_abs)
-#
-#	print self.fluorophore_psf[0]
 
 	for i in range(len(wave_length)) :
 
@@ -803,41 +785,39 @@ class TIRFMSettings() :
 #	self.fluorophore_psf += I_abs
 
 
+    def convert_PSF(self, image_scaling) :
 
-#    def get_PSF(self, r, z, wave_length) :
-#
-#	NA = self.objective_NA
-#        N = 100
-#        drho = 1.0/N
-#        rho = numpy.array([i*drho for i in range(N)])
-#
-#        k = 2.0*numpy.pi/wave_length
-#	alpha = k*NA
-#	gamma = k*(NA/2)**2
-#
-#	J0 = map(lambda x : j0(x*alpha*rho), r)
-#	Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
-#
-#	I  = numpy.array(map(lambda x : x*J0, Y))
-#
-#	I_sum = I.sum(axis=2)
-#	I_abs = map(lambda x : abs(x)**2, I_sum)
-#
-#	self.fluorophore_psf += I_abs
-#
-#	print I_abs[0][0]
+        voxel_radius = self.spatiocyte_VoxelRadius
+        pixel_length = int(2.0*voxel_radius*image_scaling/1e-9)
+
+	Nr = len(self.fluorophore_radial)/pixel_length
+	#Nz = len(self.fluorophore_depth)/pixel_length
+
+	psf_in_pixel = numpy.array([[0.00 for i in range(Nr)] for j in range(len(self.fluorophore_depth))])
+
+	for i in range(len(self.fluorophore_depth)) :
+
+	    for j in range(pixel_length) :
+
+		array_r = self.fluorophore_psf[i,:Nr*pixel_length].reshape((Nr, pixel_length))
+		psf_in_pixel[i] = map(lambda x : sum(x), array_r)
+
+	psf_in_pixel = psf_in_pixel/psf_in_pixel[0][0]
+
+
+	return psf_in_pixel
 
 
 
     def get_Noise(self, signal) :
 
-	Nr = self.camera_readout
-	DC = self.camera_dark_current
-	Fn = numpy.sqrt(self.camera_excess)
-	M  = self.camera_emgain
+	Nr = self.detector_readout
+	DC = self.detector_dark_current
+	Fn = numpy.sqrt(self.detector_excess)
+	M  = self.detector_emgain
 
-	# get noise -- defined by HAMAMATSU Photonics
-	sigma2 = Fn**2*(signal + DC*self.camera_exposure_time)+ (Nr/M)**2
+	# Noise calculation defined by HAMAMATSU Photonics
+	sigma2 = Fn**2*(signal + DC*self.detector_exposure_time)+ (Nr/M)**2
 	noise  = numpy.sqrt(sigma2)
 
 	return noise
@@ -848,21 +828,11 @@ class TIRFMSettings() :
 
 	for j in range(len(self.fluorophore_wavelength)) :
 
-	    index = self.fluorophore_wavelength[j] - self.fluorophore_wavelength[0]
-
-            QEff = self.camera_green[index]
+            QEff = self.detector_green[j]
 
 	    # get SNR and relative SNR
 	    self.absolute_snr[j] = (QEff*self.photon_number)/map(lambda x : self.get_Noise(QEff*x), self.photon_number)
 	    self.relative_snr[j] = map(lambda x, y : x/y, self.absolute_snr[j], self.ideal_snr)
-
-#	    for i in range(len(self.photon_number)) :
-#		# signal
-#		signal = self.photon_number[i]
-#
-#		# get SNR and relative SNR
-#		self.absolute_snr[j][i] = (QEff*signal)/self.get_Noise(QEff*signal)
-#		self.relative_snr[j][i] = self.absolute_snr[j][i]/self.ideal_snr[i]
 
 
 
@@ -873,10 +843,11 @@ class TIRFMVisualizer() :
 	TIRFM Visualization class of e-cell simulator
 	'''
 
-	def __init__(self, settings=TIRFMSettings()) :
+	def __init__(self, settings=TIRFMSettings(), output_file=None) :
 
 		assert isinstance(settings, TIRFMSettings)
 		self.settings = settings
+		self.output_file = output_file
 
 		"""
 		Check and create the folder for image file.
@@ -892,9 +863,9 @@ class TIRFMVisualizer() :
                 """
                 voxel_radius = self.settings.spatiocyte_VoxelRadius
 
-                view = self.settings.camera_pixel_length/(2.0*voxel_radius)
+                view = self.settings.detector_pixel_length/(2.0*voxel_radius)
                 Mag  = self.settings.objective_mag*self.settings.tubelens_mag
-                zoom = self.settings.camera_zoom
+                zoom = self.settings.detector_zoom
 
                 self.image_scaling = view/(Mag*zoom)
 
@@ -904,21 +875,21 @@ class TIRFMVisualizer() :
                 self.settings.set_depth(Mag)
 
                 """
-                Point Spread Function (PSF)
+                Point Spread Function (PSF) in nm-scale
                 """
                 self.settings.set_PSF()
 
                 """
                 Image Size and Boundary
                 """
-                width  = int(self.settings.camera_image_size[0])
-                height = int(self.settings.camera_image_size[1])
+                width  = int(self.settings.detector_image_size[0])
+                height = int(self.settings.detector_image_size[1])
 
                 if width > IMAGE_SIZE_LIMIT or height > IMAGE_SIZE_LIMIT :
                         raise VisualizerErrror('Image size is bigger than the limit size')
 
-                # camera's focal position
-		focal = numpy.array(self.settings.camera_focal_point)
+                # detector's focal position
+		focal = numpy.array(self.settings.detector_focal_point)
 
 		# get length
                 pixel_z = self.settings.spatiocyte_lengths[0][2]/self.image_scaling
@@ -952,6 +923,11 @@ class TIRFMVisualizer() :
 
 		print self.img_min
 		print self.img_max
+
+                """
+                Convert Point Spread Function (PSF) in pixel-scale
+                """
+		#self.fluorophore_psf_pixel = self.settings.convert_PSF(self.image_scaling)
 
 
 
@@ -1020,12 +996,12 @@ class TIRFMVisualizer() :
 	def get_position(self, pos) :
 
                 # normal vector
-                norm  = map(operator.sub, self.settings.camera_base_position, self.settings.camera_focal_point)
+                norm  = map(operator.sub, self.settings.detector_base_position, self.settings.detector_focal_point)
                 norm_len2 = norm[0]**2 + norm[1]**2 + norm[2]**2
                 norm_len = math.sqrt(norm_len2)
 
-                # camera's focal position
-                focal = numpy.array(self.settings.camera_focal_point)
+                # detector's focal position
+                focal = numpy.array(self.settings.detector_focal_point)
 
                 coef_d = -norm[0]*focal[0]-norm[1]*focal[1]-norm[2]*focal[2]
 		par_xy = [0, self.img_width/2, self.img_height/2]
@@ -1057,7 +1033,7 @@ class TIRFMVisualizer() :
         	frame_time = []
         	expos_time = []
 
-		frame_interval = 1.0/self.settings.camera_fps
+		frame_interval = 1.0/self.settings.detector_fps
 
         	# set the frame and exposure time (start/end time)
         	counter = 1
@@ -1065,12 +1041,12 @@ class TIRFMVisualizer() :
 
         	while True :
 
-        	    ft = self.settings.camera_start_time + frame_interval*counter
+        	    ft = self.settings.detector_start_time + frame_interval*counter
         	    frame_time.append(ft)
-        	    et = ft - self.settings.camera_exposure_time
+        	    et = ft - self.settings.detector_exposure_time
         	    if (et < 0.0) : et = 0.0
         	    expos_time.append(et)
-        	    if (ft >= self.settings.camera_end_time) : break
+        	    if (ft >= self.settings.detector_end_time) : break
 
         	    counter += 1
 
@@ -1094,7 +1070,7 @@ class TIRFMVisualizer() :
 
         	            st_f = self.settings.spatiocyte_data[index-1][0]
         	            stay_time  = min(st - st_f, st - et)
-        	            norm_stime = stay_time/self.settings.camera_exposure_time
+        	            norm_stime = stay_time/self.settings.detector_exposure_time
 	
 			    element = (norm_stime, self.settings.spatiocyte_data[index][1])
         	            frame_elem.append(element)
@@ -1109,7 +1085,7 @@ class TIRFMVisualizer() :
 
         	    if stay_time > ignore_dtime :
 
-        	        norm_stime = stay_time/self.settings.camera_exposure_time
+        	        norm_stime = stay_time/self.settings.detector_exposure_time
         	        element = (norm_stime, self.settings.spatiocyte_data[last_index][1])
         	        frame_elem.append(element)
 	
@@ -1126,7 +1102,7 @@ class TIRFMVisualizer() :
 		signal = numpy.array([0, 0, 0])
 
 		# EM gain
-		gain = self.settings.camera_emgain
+		gain = self.settings.detector_emgain
 
 		x, z, y = pixel
 
@@ -1138,18 +1114,19 @@ class TIRFMVisualizer() :
 		    d = abs(x - x_i)
 
 		    # convert pixel to real(nm) scale
-		    voxel_radius = self.settings.spatiocyte_VoxelRadius
-
-                    r = r*(2.0*voxel_radius*self.image_scaling/1e-9)
-                    d = d*(2.0*voxel_radius*self.image_scaling/1e-9)
+		    #voxel_radius = self.settings.spatiocyte_VoxelRadius
+                    ##r = r*(2.0*voxel_radius*self.image_scaling/1e-9)
+                    #d = d*(2.0*voxel_radius*self.image_scaling/1e-9)
 
 		    # get signal
 		    if (int(d) < len(self.settings.fluorophore_depth)  and
 		        int(r) < len(self.settings.fluorophore_radial) and
 		        int(r) < self.settings.pinhole_radius) :
+#                    if (int(d) < len(self.fluorophore_psf_pixel) and
+#                        int(r) < len(self.fluorophore_psf_pixel[0])) :
 
 			N_pe = self.settings.fluorophore_rgb[int(d)]
-
+		        #signal += N_pe*gain*self.fluorophore_psf_pixel[int(d)][int(r)]
 		        signal += N_pe*gain*self.settings.fluorophore_psf[int(d)][int(r)]
 
 		# get noise
@@ -1157,23 +1134,29 @@ class TIRFMVisualizer() :
 
 		signal += noise
 
-                # convert photoelectron to ADC counts(Grayscale)
-                k = self.settings.camera_ADC_const
-                ADC0 = self.settings.camera_ADC_offset
-
-                ADC = numpy.random.poisson(signal/k + ADC0, None)
+                # convert photoelectron to ADC counts (Grayscale)
+                k = self.settings.detector_ADC_const
+                ADC0 = self.settings.detector_ADC_offset
+		ADC  = numpy.random.poisson(signal/k + ADC0, None)
 
                 # Rescale to 8-bit
-                ADC = ADC*(2.0**8-1)/(2.0**self.settings.camera_ADC_bit-1)
+                #ADC = ADC*(2.0**8-1)/(2.0**self.settings.detector_ADC_bit-1)
 
-		return (int(ADC[0]), int(ADC[1]), int(ADC[2]))
+		return ADC
 
 
 
 	def output_frames(self, num_div=1) :
 		"""
-	        Output Images
+	        Output Data
 	        """
+		with open(self.output_file, 'w') as output :
+		    output.write('#time\tintensity\t\n')
+		    output.write('\n')
+
+		print 'Writing to ', self.output_file, '....'
+
+
                 # - Frame2Frame data set
                 # convert step-to-step dataset to frame-to-frame one
                 frame_data = self._Data2Frame()
@@ -1185,8 +1168,8 @@ class TIRFMVisualizer() :
 		    image_file_name = os.path.join(self.settings.movie_image_file_dir, \
 						self.settings.movie_image_file_name_format % i)
 
-		    # initialize tirfm image
-		    tirfm_image = Image.new("RGB", (self.img_width, self.img_height), (0,0,0))
+#		    # initialize tirfm image
+#		    tirfm_image = Image.new("RGB", (self.img_width, self.img_height), (0,0,0))
 
 		    #####
                     time  = frame_data[i][0]
@@ -1198,6 +1181,7 @@ class TIRFMVisualizer() :
                     for j in range(1, len(frame_data[i])-1) :
 
 			n_st = frame_data[i][j][0]
+
                         c_id = map(lambda x : x[0], frame_data[i][j][1])
                         s_id = map(lambda x : x[1], frame_data[i][j][1])
                         l_id = map(lambda x : x[2], frame_data[i][j][1])
@@ -1210,43 +1194,66 @@ class TIRFMVisualizer() :
 			    #if (s_id[k] == 6 or s_id[k] == 12) :
 			    # ERK-all
 			    #if (s_id[k] != 37 or s_id[k] != 38 or s_id[k] != 44) :
-			    #if (s_id[k] != 0 or s_id[k] != 1 or s_id[k] != 15) :
+			    #if (s_id[k] != 0  or s_id[k] != 1  or s_id[k] != 15) :
 
 				# particles coordinate in real(nm) scale
-                        	x, y, z = self._get_coordinate(c_id[k])
+				x, y, z = self._get_coordinate(c_id[k])
 
 				# convert voxel-# to pixel scale
 				scaled_x = int(x/self.image_scaling) + self.img_min[0]
 				scaled_z = int(z/self.image_scaling) + self.img_min[2]
 				scaled_y = int(y/self.image_scaling) + self.img_min[1]
 
-				pos = (scaled_x, scaled_y, scaled_z)
+				#pos = (scaled_x, scaled_y, scaled_z)
+				pos = (x, y, z)
 
 				# rotation and get new-position
 				#pos = self.get_position(pos)
 				#print pos, '-->', self.get_position(pos)
 
 				#if (scaled_x < self.img_width  and scaled_x > 0 and
-				if (scaled_z < self.img_width  and scaled_z > 0 and
-				    scaled_y < self.img_height and scaled_y > 0 ) :
+				#if (scaled_z < self.img_width  and scaled_z > 0 and
+				#    scaled_y < self.img_height and scaled_y > 0 ) :
 
-					p0.append(pos)
+				p0.append(pos)
 
-		    ##### Optimization here
-		    focal_x = self.settings.camera_focal_point[0]
-		    ix = (self.img_max[0] - self.img_min[0])*focal_x
+		    obs_z = self.settings.spatiocyte_lengths[0][2]*self.settings.detector_focal_point[2]
+		    obs_y = self.settings.spatiocyte_lengths[0][1]*self.settings.detector_focal_point[1]
+		    obs_x = self.settings.spatiocyte_lengths[0][0]*self.settings.detector_focal_point[0]
 
-		    for iz in range(self.img_min[2], self.img_max[2]) :
-		    #for ix in range(self.img_min[0], self.img_max[0]) :
-		    	for iy in range(self.img_min[1], self.img_max[1]) :
+		    RGB = numpy.array([0, 0, 0])
 
-			    pixel = (ix, iz, iy)
-			    RGB = self._get_Signal(p0, pixel)
+		    for y in range(100) :
+			for z in range(100) :
+			    r = numpy.sqrt((z - obs_z)**2 + (y - obs_y)**2)
 
-			    tirfm_image.putpixel((iz, self.img_height-1-iy), RGB)
+			    if (r < self.settings.pinhole_radius) :
+				RGB += self._get_Signal(p0, (obs_x, y, z))
 
+		    #### writing to data file
+		    data_line  = str(time) + '\t'
+		    data_line += str(RGB[0]) + '\t'
+		    data_line += '\n'
 
-		    tirfm_image.save(image_file_name)
+		    with open(self.output_file, 'a') as output :
+		    	output.write(data_line)
+
+		    ##### Image output
+#		    focal_x = self.settings.detector_focal_point[0]
+#		    ix = (self.img_max[0] - self.img_min[0])*focal_x
+#
+#
+#		    for iz in range(self.img_min[2], self.img_max[2]) :
+#		    #for ix in range(self.img_min[0], self.img_max[0]) :
+#		    	for iy in range(self.img_min[1], self.img_max[1]) :
+#
+#			    pixel = (ix, iz, iy)
+#			    RGB = self._get_Signal(p0, pixel)
+#
+#			    tirfm_image.putpixel((iz, self.img_height-1-iy), RGB)
+#
+#
+#		    tirfm_image.save(image_file_name)
 
 
 
@@ -1258,7 +1265,7 @@ class TIRFMVisualizer() :
             input_image_filename = os.path.join(self.settings.movie_image_file_dir, self.settings.movie_image_file_name_format)
     
             # Set FFMPEG command
-            ffmpeg_command  = 'ffmpeg -sameq -r "%s"' % (str(int(self.settings.camera_fps)))
+            ffmpeg_command  = 'ffmpeg -sameq -r "%s"' % (str(int(self.settings.detector_fps)))
             ffmpeg_command += ' -y -i "%s/%s" ' % (self.settings.movie_image_file_dir, self.settings.movie_image_file_name_format)
             ffmpeg_command += self.settings.movie_filename
             #ffmpeg_command += ('" -vcodec rawvideo -pix_fmt yuyv422 ' + self._movie_filename)
@@ -1334,13 +1341,13 @@ class TIRFMVisualizer() :
     
     	    ######
     	    fig_qeff = pylab.figure()
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_red,   color='red',   label='QE (Red)',   linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_green, color='green', label='QE (Green)', linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.camera_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_red,   color='red',   label='QE (Red)',   linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_green, color='green', label='QE (Green)', linewidth=2)
+	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
             pylab.axis([400, 1000, 0, 1.10])
             pylab.xlabel('Wave Length [nm]')
             pylab.ylabel('Quantum Efficiency')
-            pylab.title('Camera : ' + self.settings.camera_type)
+	    pylab.title('Camera : ' + self.settings.detector_type)
     	    pp.savefig(fig_qeff)
 
             ###### SNR
@@ -1384,7 +1391,7 @@ class TIRFMVisualizer() :
     
     	    pylab.colorbar(ticks=snr_scale)
             pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-    		self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
+    		self.settings.fluorophore_wavelength[0], self.settings.fluorophore_wavelength[-1]])
             pylab.xlabel('Input Signal [photons/pixel]')
             pylab.ylabel('Wave length [nm]')
             pylab.title('SNR')
@@ -1401,7 +1408,7 @@ class TIRFMVisualizer() :
     
     	    pylab.colorbar(ticks=rsnr_scale)
             pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-                    self.settings.fluorophore_wavelength[100], self.settings.fluorophore_wavelength[800-self.settings.fluorophore_wavelength[0]]])
+                    self.settings.fluorophore_wavelength[0], self.settings.fluorophore_wavelength[-1]])
             pylab.xlabel('Input Signal [photons/pixel]')
             pylab.ylabel('Wave length [nm]')
             pylab.title('Relative SNR')
