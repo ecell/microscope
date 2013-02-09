@@ -165,7 +165,7 @@ class TIRFMSettings() :
             self._set_data('psf_cutoff', cutoff)
             self._set_data('psf_file_name_format', file_name_format)
 
-	    index = self.psf_wavelength - self.fluorophore_wavelength[0]
+	    index = self.psf_wavelength - self.wave_length[0]
 	    self.fluoex_eff[index] = 100
 	    self.fluoem_eff[index] = 100
 
@@ -185,7 +185,7 @@ class TIRFMSettings() :
             self._set_data('psf_wavelength', wave_length)
             self._set_data('psf_file_name_format', file_name_format)
 
-            index = self.psf_wavelength - self.fluorophore_wavelength[0]
+            index = self.psf_wavelength - self.wave_length[0]
             self.fluoex_eff[index] = 100
             self.fluoem_eff[index] = 100
 
@@ -234,16 +234,30 @@ class TIRFMSettings() :
                 exit()
 
 	    ####
-            self._set_data('fluorophore_type', fluorophore_type)
 	    self.fluoex_eff = self.set_efficiency(fluorophore_excitation)
 	    self.fluoem_eff = self.set_efficiency(fluorophore_emission)
 
+	    index_ex = self.fluoex_eff.index(max(self.fluoex_eff))
+	    index_em = self.fluoem_eff.index(max(self.fluoem_eff))
+
+	    #### for temporary
+            self._set_data('fluorophore_type', fluorophore_type)
+	    self._set_data('psf_wavelength', self.wave_length[index_em])
+            self._set_data('psf_file_name_format', file_name_format)
+
+            self.fluoex_eff[index_ex] = 100
+            self.fluoem_eff[index_em] = 100
+
+            print '\tExcitation : Wave Length   = ', self.wave_length[index_ex], 'nm'
+            print '\tEmission   : Wave Length   = ', self.psf_wavelength, 'nm'
+
+
 	# Normalization
 	norm = sum(self.fluoex_eff)
-	self.fluoex_norm = self.fluoex_eff/norm
+	self.fluoex_norm = numpy.array(self.fluoex_eff)/norm
 
 	norm = sum(self.fluoem_eff)
-	self.fluoem_norm = self.fluoem_eff/norm
+	self.fluoem_norm = numpy.array(self.fluoem_eff)/norm
 
 
 
@@ -446,9 +460,10 @@ class TIRFMSettings() :
                 a_data = dummy0[0].split(',')
                 detector_QEdata.append(a_data)
 
-	    self.detector_blue  = self.set_efficiency(detector_QEdata, 1)
-	    self.detector_green = self.set_efficiency(detector_QEdata, 2)
-	    self.detector_red   = self.set_efficiency(detector_QEdata, 3)
+	    self.detector_qeff  = self.set_efficiency(detector_QEdata)
+	    #self.detector_blue  = self.set_efficiency(detector_QEdata, 1)
+	    #self.detector_green = self.set_efficiency(detector_QEdata, 2)
+	    #self.detector_red   = self.set_efficiency(detector_QEdata, 3)
 
 
 
@@ -586,11 +601,12 @@ class TIRFMSettings() :
 
 	if (len(array[0]) < 3) : index = 1
 
-        N = len(self.fluorophore_wavelength)
-        efficiency = numpy.array([0.0 for i in range(N)])
+        N = len(self.wave_length)
+        #efficiency = numpy.array([0.0 for i in range(N)])
+        efficiency = [0.0 for i in range(N)]
 
         for i in range(N) :
-            wl = self.fluorophore_wavelength[i]
+            wl = self.wave_length[i]
 
             for j in range(len(array)) :
 
@@ -642,10 +658,32 @@ class TIRFMSettings() :
 
 
 
-    def get_Photons(self, z, wave_length) :
+    def set_PSF_total(self, scaling_factor) :
 
-        # plank const * speed of light
-        hc = 2.00e-25 # J m
+	# (1) Beam PSF
+	self.set_PSF_beam()
+
+	# (2) scattering matrix of photon-molecule interaction
+	self.set_SMatrix()
+
+	# (3) fluorophore PSF
+	self.set_PSF_fluorophore()
+
+	# (4) detector PSF
+	#self.set_PSF_detecotr(scaling_factor)
+
+
+
+    def set_PSF_beam(self) :
+
+        r = self.radial
+        z = self.depth
+
+        # (plank const)*(speed of light) [joules meter]
+        hc = 2.00e-25
+
+	# incident beam : wave_length
+	wave_length = self.beam_wavelength
 
         # single photon energy
         E_wl = hc/(wave_length*1.0e-9)
@@ -653,40 +691,83 @@ class TIRFMSettings() :
 
         # calculate the number of photons/sec
         N0 = (self.beam_intensity*1.0e+4/E_wl)*area
+	N0 = N0*self.detector_exposure_time
 
-        N_pd = numpy.exp(-z/self.penetration_depth)
-        N_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
+        # focal depth
+        psf_fd = numpy.exp(-0.5*(z/self.focal_depth)**2)
 
-        N_photons_in =  numpy.array(map(lambda x : N0*x, N_pd*N_fd))
+	# Point Spread Function (Beam)
+	if (self.pinhole_radius < len(r)) :
+	    # penetration radius and depth (FCS/Confocal)
+	    psf = map(lambda x, y : x*y, self.get_PSF_beam(r, z, wave_length), psf_fd)
+
+	else :
+	    # penetration radius and depth (TIRF)
+	    psf_pr = numpy.array(map(lambda x : 1.00, r))
+            psf_pd = numpy.exp(-z/self.penetration_depth)
+
+	    psf = numpy.array(map(lambda x : psf_pr*x, psf_pd*psf_fd))
+
+	self.beam_psf = N0*psf
+
+
+
+    def get_PSF_beam(self, r, z, wave_length) :
+
+	# set Numerical Appature
+        NA = self.objective_NA
+        N = 100
+
+	# set alpha and gamma consts
+        k = 2.0*numpy.pi/wave_length
+        alpha = k*NA
+        gamma = k*(NA/2)**2
+
+	# set rho parameters
+        drho = 1.0/N
+        rho = numpy.array([(i+1)*drho for i in range(N)])
+
+        J0 = numpy.array(map(lambda x : j0(x*alpha*rho), r))
+        Y  = numpy.array(map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
+
+        I  = numpy.array(map(lambda x : x*J0, Y))
+        I_sum = I.sum(axis=2)
+
+        psf = map(lambda x : abs(x)**2, I_sum)
+
+        return psf
+
+
+
+    def set_SMatrix(self) :
 
         #################################################################
         #
-        # Note : Adding Quantum mechanics of Photons to Molecules
+        # Note : Scattering Matrix of photon-matter interactions
         #
         #       Using random number generator to simulate
         #       the energy transition of molecular vibrational states
         #
         #################################################################
 
-        N_photons_out = 1.0e-6*N_photons_in
+        r = self.radial
+        z = self.depth
+        wave_length = self.wave_length
 
+	M = 1.00e-6
 
+	self.scattering_matrix = M
 
         #################################################################
 
-        # calculate the number of photons out
-	N_photons_out = N_photons_out*self.detector_exposure_time
-
-        return N_photons_out
 
 
+    def set_PSF_fluorophore(self) :
 
-    def set_PSF(self) :
-
-        wave_length = self.fluorophore_wavelength
-
-	r = self.fluorophore_radial # in nm-scale
-	z = self.fluorophore_depth  # in nm-scale
+        r = self.radial
+        z = self.depth
+        #wave_length = self.wave_length
+        wave_length = self.psf_wavelength
 
         # Fluorophores Emission Intensity (wave_length)
         I = self.fluoem_norm
@@ -698,30 +779,22 @@ class TIRFMSettings() :
         if (self.emission_switch == True) :
             I = I*0.01*self.emission_eff
 
-	# count photons
-	N_ph = map(lambda x : I*x, self.get_Photons(z, wave_length))
+        # Detector : Quantum Efficiency
+        I = I*self.detector_qeff
 
-	# Detector : Quantum Efficiency
-	self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.detector_blue,  N_ph))
-	self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.detector_green, N_ph))
-	self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.detector_red,   N_ph))
+	# For normalization
+	norm = map(lambda x : True if x > 1e-4 else False, I)
 
-	# count photoelectrons
-	N_b = sum(map(lambda x : x*self.detector_blue,  N_ph))
-	N_g = sum(map(lambda x : x*self.detector_green, N_ph))
-	N_r = sum(map(lambda x : x*self.detector_red,   N_ph))
+	# Point Spread Function (Fluorophore)
+	psf = None
 
-	# for Normalization
-	norm = map(lambda x : True if x > 1e-2 else False, N_ph[0])
-
-	# Point Spread Function
 	if (self.fluorophore_type == 'Gaussian') :
 
             I0 = 1.0
             Ir = sum(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm))
             Iz = sum(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm))
 
-	    self.fluorophore_psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
+	    psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
 
 
         elif (self.fluorophore_type == 'Point-like') :
@@ -730,82 +803,93 @@ class TIRFMSettings() :
             Ir = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, r)), norm))
             Iz = sum(map(lambda x : x*numpy.array(map(lambda x : 1.00 if x == 0 else 0.00, z)), norm))
 
-            self.fluorophore_psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
+            psf = numpy.array(map(lambda x : I0*Ir*x, Iz))
 
 
 	else :
 
 	    # make the norm and wave_length array shorter
-	    re_wavelength = []
-
-	    for i in range(len(norm)) :
-
-		if norm[i] is True :
-		    re_wavelength.append(wave_length[i])
-
-	    self.get_PSF(r, z, numpy.array(re_wavelength))
-
+#	    re_wavelength = []
+#
+#	    for i in range(len(norm)) :
+#
+#		if norm[i] is True :
+#		    re_wavelength.append(wave_length[i])
+#
+#	    psf = self.get_PSF_fluorophore(r, z, numpy.array(re_wavelength))
+	    psf = self.get_PSF_fluorophore(r, z, wave_length)
 
 	# Normalization
-	self.fluorophore_psf = self.fluorophore_psf/sum(norm)
+	self.fluorophore_psf = psf/sum(norm)
 
 
 
-    def get_PSF(self, r, z, wave_length) :
+    def get_PSF_fluorophore(self, r, z, wave_length) :
 
+	# set Numerical Appature
 	NA = self.objective_NA
 	N = 80
-	drho = 1.0/N
-	rho = numpy.array([(i+1)*drho for i in range(N)])
 
+	# set alpha and gamma consts
 	k = 2.0*numpy.pi/wave_length
 	alpha = k*NA
 	gamma = k*(NA/2)**2
 
-	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
-	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
+	# set rho parameters
+        drho = 1.0/N
+        rho = numpy.array([(i+1)*drho for i in range(N)])
 
-	for i in range(len(wave_length)) :
+        J0 = numpy.array(map(lambda x : j0(x*alpha*rho), r))
+        Y  = numpy.array(map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
+#	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
+#	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
 
-	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
-	    I_sum = I.sum(axis=2)
-	    I_abs = map(lambda x : abs(x)**2, I_sum)
+        I  = numpy.array(map(lambda x : x*J0, Y))
+        I_sum = I.sum(axis=2)
 
-	    self.fluorophore_psf += I_abs
+        psf = numpy.array(map(lambda x : abs(x)**2, I_sum))
 
-	    print wave_length[i], I_abs[0][0]
-
-#       J0 = map(lambda x : j0(x*alpha*rho), r)
-#       Y  = map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z)
-#       I  = numpy.array(map(lambda x : x*J0, Y))
+#	for i in range(len(wave_length)) :
 #
-#	I_sum = I.sum(axis=2)
-#	I_abs = map(lambda x : abs(x)**2, I_sum)
+#	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
+#	    I_sum = I.sum(axis=2)
+#	    I_abs = map(lambda x : abs(x)**2, I_sum)
 #
-#	self.fluorophore_psf += I_abs
+#	    if (i > 0) : psf += I_abs
+#	    else : psf = I_abs
+
+	return psf
 
 
-    def convert_PSF(self, image_scaling) :
+
+    def set_PSF_detector(self, scaling_factor) :
+
+        # Detector : Quantum Efficiency
+        #self.fluorophore_rgb[:,2] = map(lambda x : sum(x), map(lambda x : x*self.detector_blue,  N_ph))
+        #self.fluorophore_rgb[:,1] = map(lambda x : sum(x), map(lambda x : x*self.detector_green, N_ph))
+        #self.fluorophore_rgb[:,0] = map(lambda x : sum(x), map(lambda x : x*self.detector_red,   N_ph))
+
+        # count photoelectrons
+        #N_b = sum(map(lambda x : x*self.detector_blue,  N_ph))
+        #N_g = sum(map(lambda x : x*self.detector_green, N_ph))
+        #N_r = sum(map(lambda x : x*self.detector_red,   N_ph))
 
         voxel_radius = self.spatiocyte_VoxelRadius
-        pixel_length = int(2.0*voxel_radius*image_scaling/1e-9)
+        pixel_length = int(2.0*voxel_radius*scaling_factor/1e-9)
 
-	Nr = len(self.fluorophore_radial)/pixel_length
-	#Nz = len(self.fluorophore_depth)/pixel_length
-
-	psf_in_pixel = numpy.array([[0.00 for i in range(Nr)] for j in range(len(self.fluorophore_depth))])
-
-	for i in range(len(self.fluorophore_depth)) :
-
-	    for j in range(pixel_length) :
-
-		array_r = self.fluorophore_psf[i,:Nr*pixel_length].reshape((Nr, pixel_length))
-		psf_in_pixel[i] = map(lambda x : sum(x), array_r)
-
-	psf_in_pixel = psf_in_pixel/psf_in_pixel[0][0]
-
-
-	return psf_in_pixel
+#	Nr = len(self.radial)/pixel_length
+#	#Nz = len(self.depth)/pixel_length
+#
+#	psf_in_pixel = numpy.array([[0.00 for i in range(Nr)] for j in range(len(self.depth))])
+#
+#	for i in range(len(self.depth)) :
+#
+#	    for j in range(pixel_length) :
+#
+#		array_r = self.fluorophore_psf[i,:Nr*pixel_length].reshape((Nr, pixel_length))
+#		psf_in_pixel[i] = map(lambda x : sum(x), array_r)
+#
+#	psf_in_pixel = psf_in_pixel/psf_in_pixel[0][0]
 
 
 
@@ -826,7 +910,7 @@ class TIRFMSettings() :
 
     def set_SNR(self) :
 
-	for j in range(len(self.fluorophore_wavelength)) :
+	for j in range(len(self.wave_length)) :
 
             QEff = self.detector_green[j]
 
@@ -875,11 +959,6 @@ class TIRFMVisualizer() :
                 self.settings.set_depth(Mag)
 
                 """
-                Point Spread Function (PSF) in nm-scale
-                """
-                self.settings.set_PSF()
-
-                """
                 Image Size and Boundary
                 """
                 width  = int(self.settings.detector_image_size[0])
@@ -925,9 +1004,9 @@ class TIRFMVisualizer() :
 		print self.img_max
 
                 """
-                Convert Point Spread Function (PSF) in pixel-scale
+                set Point Spread Function (PSF) in detector scale 
                 """
-		#self.fluorophore_psf_pixel = self.settings.convert_PSF(self.image_scaling)
+		self.settings.set_PSF_total(self.image_scaling)
 
 
 
@@ -1096,15 +1175,245 @@ class TIRFMVisualizer() :
 
 
 
-	def _get_Signal(self, p0, pixel) :
+        def _get_Signal(self, p_i, p_0) :
+
+		# set beam center position
+                x_0, y_0, z_0 = p_0
+
+		# set particle position
+                x_i, y_i, z_i = p_i
+
+		#####
+		r = self.settings.radial
+
+                z = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
+                y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
+
+                Z, Y = numpy.meshgrid(z, y)
+		R = numpy.sqrt(Z**2 + Y**2)
+
+		# get PSF (Beam)
+		beam_psf = copy.copy(R)
+		beam_array = self.settings.beam_psf[int(x_0)]
+
+		# get scattering matrix
+		SMatrix = self.settings.scattering_matrix
+
+                # get PSF (Fluorophore)
+		fluo_psf = copy.copy(R)
+                fluo_array = self.settings.fluorophore_psf[int(abs(x_i-x_0))]
+
+		for i in range (len(R)) :
+		    for j in range(len(R[i])) :
+
+			rr = R[i][j]
+
+		        if (rr < len(beam_array)) : beam_psf[i][j] = beam_array[int(rr)]
+		        else : beam_psf[i][j] = 0
+
+                        if (rr < len(fluo_array)) : fluo_psf[i][j] = fluo_array[int(rr)]
+                        else : fluo_psf[i][j] = 0
+
+		index_y = (numpy.abs(y - (y_i-y_0))).argmin()
+		index_z = (numpy.abs(z - (z_i-z_0))).argmin()
+
+                # signal conversion : PSF out = PSF(Fluorophore) * SMatrix * PSF(Beam)
+		signal = beam_psf * SMatrix * beam_psf[index_z][index_y]
+
+		#fig = pylab.figure()
+		#spec_scale = numpy.linspace(0, SMatrix*beam_psf[int(dz)][int(dy)], 200, endpoint=True)
+		#pylab.contour(Z, Y,  signal, spec_scale, linewidth=0.1, color='k')
+		#pylab.contourf(Z, Y, signal, cmap=pylab.cm.jet)
+		#pylab.show()
+		#exit()
+
+                return signal
+
+
+
+	def overwrite(self, plane, signal, p_i) :
+
+                # particle position
+                x_i, y_i, z_i = p_i
+
+		# z-axis
+		Nz_plane  = len(plane)
+		Nz_signal = len(signal)
+		Nr = len(self.settings.radial)
+
+		if (z_i + Nr > Nz_plane) :
+
+		    dz = (z_i + Nr) - Nz_plane
+
+		    z0_to = int(Nz_plane - 1)
+		    zi_to = int(Nz_signal - dz)
+
+		else :
+
+		    dz = Nz_plane - (z_i + Nr)
+
+		    z0_to = int(Nz_plane - dz - 1)
+		    zi_to = int(Nz_signal)
+
+		if (z_i - Nr < 0) :
+
+		    dz = z_i - Nr
+
+		    z0_from = 0
+		    zi_from = int(abs(dz))
+
+		else :
+
+		    dz = z_i - Nr
+
+                    z0_from = int(dz)
+                    zi_from = 0
+
+		print 'dz = ', dz
+
+                # y-axis
+                Ny_plane  = plane.size/Nz_plane
+                Ny_signal = signal.size/Nz_signal
+
+                if (y_i + Nr > Ny_plane) :
+
+                    dy = (y_i + Nr) - Ny_plane
+
+                    y0_to = int(Ny_plane - 1)
+                    yi_to = int(Ny_signal - dy)
+
+                else :
+
+                    dy = Ny_plane - (y_i + Nr)
+
+                    y0_to = int(Ny_plane - dy - 1)
+                    yi_to = int(Ny_signal)
+
+                if (y_i - Nr < 0) :
+
+                    dy = y_i - Nr
+
+                    y0_from = 0
+                    yi_from = int(abs(dy))
+
+                else :
+
+                    dy = y_i - Nr
+
+                    y0_from = int(dy + 1)
+                    yi_from = 0
+
+		print 'dy = ', dy
+
+		print z0_from, z0_to
+		print y0_from, y0_to
+		print zi_from, zi_to
+		print yi_from, yi_to
+
+		# add to plane
+                plane[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
+
+		return plane
+
+
+
+
+        def output_frames(self, num_div=1) :
+
+                # define observational image plane in nm-scale
+		voxel_size = 2.0*self.settings.spatiocyte_VoxelRadius/1e-9
+
+		### koko???
+                Nz = int(self.settings.spatiocyte_lengths[0][2]*voxel_size)
+                Ny = int(self.settings.spatiocyte_lengths[0][1]*voxel_size)
+                Nx = int(self.settings.spatiocyte_lengths[0][0]*voxel_size)
+
+                plane = numpy.zeros(shape=(Nz, Ny))
+
+                z = numpy.linspace(0, Nz-1, Nz)
+                y = numpy.linspace(0, Ny-1, Ny)
+                Z, Y = numpy.meshgrid(z, y)
+
+		# focal point
+                z0 = Nz*self.settings.detector_focal_point[2]
+                y0 = Ny*self.settings.detector_focal_point[1]
+                x0 = Nx*self.settings.detector_focal_point[0]
+
+		# beam position
+		p_b = numpy.array([x0, y0, z0])
+
+                # - Frame2Frame data set
+                # convert step-to-step dataset to frame-to-frame one
+                frame_data = self._Data2Frame()
+
+                # create frame data composed by frame element data
+                for i in range(len(frame_data)) :
+
+                    # set image file name
+                    image_file_name = os.path.join(self.settings.movie_image_file_dir, \
+                                                self.settings.movie_image_file_name_format % i)
+
+                    time  = frame_data[i][0]
+
+                    print 'time : ', time, ' sec'
+
+                    for j in range(1, len(frame_data[i])-1) :
+
+                        n_st = frame_data[i][j][0]
+
+                        c_id = map(lambda x : x[0], frame_data[i][j][1])
+                        s_id = map(lambda x : x[1], frame_data[i][j][1])
+                        l_id = map(lambda x : x[2], frame_data[i][j][1])
+
+                        # particles coordinate in real(nm) scale
+                        pos = map(lambda x : self._get_coordinate(x), c_id)
+
+		    ######
+		    signal = 0
+
+		    for i in range(len(pos)) :
+			print i, numpy.array(pos[i])*voxel_size
+
+			p_i = numpy.array(pos[i])*voxel_size
+			signal = numpy.array(self._get_Signal(p_i, p_b))
+
+		        # add signal matrix to image plane
+		        plane = self.overwrite(plane, signal, p_i)
+
+			break
+
+                    fig = pylab.figure()
+                    spec_scale = numpy.linspace(0, numpy.amax(plane), 200, endpoint=True)
+                    pylab.contour(Z, Y,  plane, spec_scale, linewidth=0.1, color='k')
+                    pylab.contourf(Z, Y, plane, cmap=pylab.cm.jet)
+                    pylab.show()
+
+                    exit()
+
+                    ###### Image output
+#                   focal_x = self.settings.detector_focal_point[0]
+#                   ix = (self.img_max[0] - self.img_min[0])*focal_x
+#
+#                   for iz in range(self.img_min[2], self.img_max[2]) :
+#                   #for ix in range(self.img_min[0], self.img_max[0]) :
+#                       for iy in range(self.img_min[1], self.img_max[1]) :
+#
+#                           pixel = (ix, iz, iy)
+#                           RGB = self._get_Signal(p0, pixel)
+
+
+
+
+	def _get_Signal_0000(self, p0, p_obs) :
 
 		# get signal (photoelectron counting)
-		signal = numpy.array([0, 0, 0])
+		#signal = numpy.array([0, 0, 0])
+		signal = 0
 
 		# EM gain
 		gain = self.settings.detector_emgain
 
-		x, z, y = pixel
+		x, z, y = p_obs
 
 		for i in range(len(p0)) :
 
@@ -1119,41 +1428,40 @@ class TIRFMVisualizer() :
                     #d = d*(2.0*voxel_radius*self.image_scaling/1e-9)
 
 		    # get signal
-		    if (int(d) < len(self.settings.fluorophore_depth)  and
-		        int(r) < len(self.settings.fluorophore_radial) and
-		        int(r) < self.settings.pinhole_radius) :
+		    if (int(d) < len(self.settings.depth)  and
+		        int(r) < len(self.settings.radial)) :
+#		        int(r) < len(self.settings.radial) and
+#		        int(r) < self.settings.pinhole_radius) :
 #                    if (int(d) < len(self.fluorophore_psf_pixel) and
 #                        int(r) < len(self.fluorophore_psf_pixel[0])) :
 
-			N_pe = self.settings.fluorophore_rgb[int(d)]
+			#N_pe = self.settings.fluorophore_rgb[int(d)]
 		        #signal += N_pe*gain*self.fluorophore_psf_pixel[int(d)][int(r)]
-		        signal += N_pe*gain*self.settings.fluorophore_psf[int(d)][int(r)]
+		        #signal += N_pe*gain*self.settings.fluorophore_psf[int(d)][int(r)]
+		        signal += gain*self.settings.fluorophore_psf[int(d)][int(r)]
+
 
 		# get noise
 		noise = numpy.array(map(lambda x : self.settings.get_Noise(x), signal))
-
-		signal += noise
+		#signal += noise
 
                 # convert photoelectron to ADC counts (Grayscale)
                 k = self.settings.detector_ADC_const
                 ADC0 = self.settings.detector_ADC_offset
 		ADC  = numpy.random.poisson(signal/k + ADC0, None)
 
-                # Rescale to 8-bit
-                #ADC = ADC*(2.0**8-1)/(2.0**self.settings.detector_ADC_bit-1)
-
-		return ADC
+		return signal#ADC
 
 
 
-	def output_frames(self, num_div=1) :
+	def output_frames_0000(self, num_div=1) :
 		"""
 	        Output Data
 	        """
 		with open(self.output_file, 'w') as output :
 		    output.write('#time\tintensity\t\n')
 		    output.write('\n')
-
+		
 		print 'Writing to ', self.output_file, '....'
 
 
@@ -1221,14 +1529,8 @@ class TIRFMVisualizer() :
 		    obs_y = self.settings.spatiocyte_lengths[0][1]*self.settings.detector_focal_point[1]
 		    obs_x = self.settings.spatiocyte_lengths[0][0]*self.settings.detector_focal_point[0]
 
-		    RGB = numpy.array([0, 0, 0])
 
-		    for y in range(100) :
-			for z in range(100) :
-			    r = numpy.sqrt((z - obs_z)**2 + (y - obs_y)**2)
-
-			    if (r < self.settings.pinhole_radius) :
-				RGB += self._get_Signal(p0, (obs_x, y, z))
+		    RGB = self._get_Signal(p0, (obs_x, obs_y, obs_z))
 
 		    #### writing to data file
 		    data_line  = str(time) + '\t'
@@ -1293,23 +1595,23 @@ class TIRFMVisualizer() :
             fig_spec_wl = pylab.figure()
     
     	    # fluorophore excitation and emission
-    	    pylab.fill(self.settings.fluorophore_wavelength, self.settings.fluoex_eff, color='lightblue', label='Fluorophore Ex')
-    	    pylab.fill(self.settings.fluorophore_wavelength, self.settings.fluoem_eff, color='pink', label='Fluorophore Em')
+    	    pylab.fill(self.settings.wave_length, self.settings.fluoex_eff, color='lightblue', label='Fluorophore Ex')
+    	    pylab.fill(self.settings.wave_length, self.settings.fluoem_eff, color='pink', label='Fluorophore Em')
     
     	    # excitation filter
     	    if self.settings.excitation_switch == True :
     
-    	        pylab.plot(self.settings.fluorophore_wavelength, self.settings.excitation_eff, color='blue', label='Excitation Filter', linewidth=2)
+    	        pylab.plot(self.settings.wave_length, self.settings.excitation_eff, color='blue', label='Excitation Filter', linewidth=2)
     
     	    # dichroic mirror
     	    if self.settings.dichroic_switch == True :
     
-    	        pylab.plot(self.settings.fluorophore_wavelength, self.settings.dichroic_eff, color='green', label='Dichroic Mirror', linewidth=2)
+    	        pylab.plot(self.settings.wave_length, self.settings.dichroic_eff, color='green', label='Dichroic Mirror', linewidth=2)
     
             # emission filter
     	    if self.settings.emission_switch == True :
     
-    	        pylab.plot(self.settings.fluorophore_wavelength, self.settings.emission_eff, color='red', label='Emission Filter', linewidth=2)
+    	        pylab.plot(self.settings.wave_length, self.settings.emission_eff, color='red', label='Emission Filter', linewidth=2)
     
     	    pylab.axis([300, 800, 0, 100])
             pylab.xlabel('Wave Length [nm]')
@@ -1318,7 +1620,7 @@ class TIRFMVisualizer() :
     
     	    ######
     	    fig_spec_pos = pylab.figure()
-    	    pylab.plot(self.settings.fluorophore_radial, self.settings.fluorophore_psf[0], color='pink', label='Radial PSF', linewidth=2)
+    	    pylab.plot(self.settings.radial, self.settings.fluorophore_psf[0], color='pink', label='Radial PSF', linewidth=2)
     	    pylab.xlabel('Radial Position [nm]')
     	    pylab.ylabel('Photon [#]')
     	    pylab.title('Fluorophore : ' + self.settings.fluorophore_type)
@@ -1328,7 +1630,7 @@ class TIRFMVisualizer() :
             fig_spec_cont = pylab.figure()
 
             spec_scale = numpy.linspace(0, self.settings.fluorophore_psf[0][0], 101, endpoint=True)
-            X, Y = numpy.meshgrid(self.settings.fluorophore_radial, self.settings.fluorophore_depth)
+            X, Y = numpy.meshgrid(self.settings.radial, self.settings.depth)
 
             pylab.contour(X, Y,  self.settings.fluorophore_psf, spec_scale, linewidth=0.1, color='k')
             pylab.contourf(X, Y, self.settings.fluorophore_psf, spec_scale, cmap=pylab.cm.jet)
@@ -1341,9 +1643,9 @@ class TIRFMVisualizer() :
     
     	    ######
     	    fig_qeff = pylab.figure()
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_red,   color='red',   label='QE (Red)',   linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_green, color='green', label='QE (Green)', linewidth=2)
-	    pylab.plot(self.settings.fluorophore_wavelength, self.settings.detector_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
+	    pylab.plot(self.settings.wave_length, self.settings.detector_red,   color='red',   label='QE (Red)',   linewidth=2)
+	    pylab.plot(self.settings.wave_length, self.settings.detector_green, color='green', label='QE (Green)', linewidth=2)
+	    pylab.plot(self.settings.wave_length, self.settings.detector_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
             pylab.axis([400, 1000, 0, 1.10])
             pylab.xlabel('Wave Length [nm]')
             pylab.ylabel('Quantum Efficiency')
@@ -1354,7 +1656,7 @@ class TIRFMVisualizer() :
             self.settings.set_SNR()
     
     	    ###### SNR (wave_length)
-    	    index = int(wave_length) - self.settings.fluorophore_wavelength[0]
+    	    index = int(wave_length) - self.settings.wave_length[0]
     
             fig_snr_wl= pylab.figure()
             pylab.loglog(self.settings.photon_number, self.settings.absolute_snr[index])
@@ -1384,14 +1686,14 @@ class TIRFMVisualizer() :
             pylab.semilogx(self.settings.photon_number)
     
             snr_scale = numpy.linspace(0, self.settings.ideal_snr[-1], 21, endpoint=True)
-    	    X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
+    	    X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.wave_length)
     
             pylab.contour(X, Y, self.settings.absolute_snr,  snr_scale, linewidth=0.1, color='k')
             pylab.contourf(X, Y, self.settings.absolute_snr, snr_scale, cmap=pylab.cm.jet)
     
     	    pylab.colorbar(ticks=snr_scale)
             pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-    		self.settings.fluorophore_wavelength[0], self.settings.fluorophore_wavelength[-1]])
+    		self.settings.wave_length[0], self.settings.wave_length[-1]])
             pylab.xlabel('Input Signal [photons/pixel]')
             pylab.ylabel('Wave length [nm]')
             pylab.title('SNR')
@@ -1402,13 +1704,13 @@ class TIRFMVisualizer() :
             pylab.semilogx(self.settings.photon_number)
     
             rsnr_scale = numpy.linspace(0, 1, 21, endpoint=True)
-            X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.fluorophore_wavelength)
+            X, Y = numpy.meshgrid(self.settings.photon_number, self.settings.wave_length)
             pylab.contour(X, Y, self.settings.relative_snr,  rsnr_scale, linewidth=0.1, color='k')
             pylab.contourf(X, Y, self.settings.relative_snr, rsnr_scale, cmap=pylab.cm.jet)
     
     	    pylab.colorbar(ticks=rsnr_scale)
             pylab.axis([self.settings.photon_number[0], self.settings.photon_number[-1], \
-                    self.settings.fluorophore_wavelength[0], self.settings.fluorophore_wavelength[-1]])
+                    self.settings.wave_length[0], self.settings.wave_length[-1]])
             pylab.xlabel('Input Signal [photons/pixel]')
             pylab.ylabel('Wave length [nm]')
             pylab.title('Relative SNR')
