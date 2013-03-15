@@ -20,6 +20,8 @@ import numpy
 import parameter_configs
 
 from scipy.special import j0
+from scipy.interpolate import interp1d
+from scipy.ndimage import map_coordinates
 from scipy.misc    import toimage
 
 from matplotlib.backends.backend_pdf import PdfPages
@@ -806,8 +808,10 @@ class EPIFMConfigs() :
 	# Convertion of photons to photoelectrons
         I = I*self.detector_qeff
 
+
 	# For normalization
 	norm = map(lambda x : True if x > 1e-4 else False, I)
+
 
         # PSF : Focal Depth
         n1 = self.objective_Ng
@@ -856,7 +860,9 @@ class EPIFMConfigs() :
 #		    re_wavelength.append(wave_length[i])
 #
 #	    psf = self.get_PSF_fluorophore(r, z, numpy.array(re_wavelength))
+
 	    psf_fl = self.get_PSF_fluorophore(r, z, wave_length)
+
 
 	self.fluorophore_psf = psf_fl*psf_fd
 
@@ -1072,6 +1078,31 @@ class EPIFMVisualizer() :
 
 
 
+	def polar2cartesian(self, r, t, grid, x, y) :
+
+		X, Y = numpy.meshgrid(x, y)
+
+		new_r = numpy.sqrt(X*X + Y*Y)
+		new_t = numpy.arctan2(X, Y)
+
+		ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
+		it = interp1d(t, numpy.arange(len(t)))
+
+		new_ir = ir(new_r.ravel())
+		new_it = it(new_t.ravel())
+
+		new_ir[new_r.ravel() > r.max()] = len(r)-1
+		new_ir[new_r.ravel() < r.min()] = 0
+
+		right = map_coordinates(grid, numpy.array([new_ir, new_it]), order=3).reshape(new_r.shape)
+		left  = right[...,::-1]
+
+		psf_cart = numpy.hstack((left, right[:,1:]))
+
+		return psf_cart
+
+
+
 
         def get_signal(self, p_i, p_b, p_0) :
 
@@ -1088,13 +1119,6 @@ class EPIFMVisualizer() :
 		r = self.configs.radial
 		d = self.configs.depth
 
-                z = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
-                y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
-
-                Z, Y = numpy.meshgrid(z, y)
-		R = numpy.sqrt(Z**2 + Y**2)
-
-
 		# get PSF (Light Source)
 		dd = abs(x_b - x_0)
 
@@ -1102,6 +1126,7 @@ class EPIFMVisualizer() :
 		    source_depth = dd
                 else :
 		    source_depth = d[-1]
+
 
 		# beam lateral position
 		rr = numpy.sqrt((y_i-y_0)**2 + (z_i-z_0)**2)
@@ -1118,24 +1143,37 @@ class EPIFMVisualizer() :
 		SMatrix = self.configs.scattering_matrix
 
 
-                # get PSF (Fluorophore)
+		# get PSF (Fluorophore)
 		if (abs(x_i - x_0) >= len(d)) :
 		    fluo_depth = d[-1]
 		else :
 		    fluo_depth = abs(x_i - x_0)
 
-                fluo_psf = copy.copy(R)
-                fluo_array = self.configs.fluorophore_psf[int(fluo_depth)]
+		theta = numpy.linspace(0, 180, 181)
 
-		for i in range (len(R)) :
-		    for j in range(len(R[i])) :
+                #z = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
+                z = numpy.linspace(0, +r[-1], len(r))
+                y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
 
-			rr = R[i][j]
+		psf_t = numpy.array(map(lambda x : 1.00, theta))
+		psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
+		psf_polar = numpy.array(map(lambda x : psf_t*x, psf_r))
 
-                        if (rr < len(fluo_array)) :
-			    fluo_psf[i][j] = fluo_array[int(rr)]
-                        else :
-			    fluo_psf[i][j] = 0
+		fluo_psf  = numpy.array(self.polar2cartesian(r, theta, psf_polar, z, y))
+
+#		fluo_psf = copy.copy(R)
+#		fluo_array = self.configs.fluorophore_psf[int(fluo_depth)]
+#
+#
+#		for i in range (len(R)) :
+#		    for j in range(len(R[i])) :
+#
+#			rr = R[i][j]
+#
+#                        if (rr < len(fluo_array)) :
+#			    fluo_psf[i][j] = fluo_array[int(rr)]
+#                        else :
+#			    fluo_psf[i][j] = 0
 
 
                 # signal conversion : PSF out = PSF(Fluorophore) * SMatrix * PSF(Beam)
@@ -1143,6 +1181,7 @@ class EPIFMVisualizer() :
 
 
                 return signal
+
 
 
 
