@@ -8,7 +8,7 @@
 	  -- Gaussian Point Spreading Function (PSF)
 	Light Source
           -- Selected Light Source
-          -- Gaussian Point Spreading Function (PSF)
+          -- Gaussian Beam
 	Mirror Position
 	Excitation Filter
 	Objective
@@ -27,8 +27,8 @@ import numpy
 #-----------------------------
 ignore_open_errors = False
 
-radial = numpy.array([1.0*i for i in range(600)])
-depth  = numpy.array([1.0*i for i in range(1500)])
+radial = numpy.array([1.0*i for i in range(1000)])
+depth  = numpy.array([1.0*i for i in range(1000)])
 wave_length = numpy.array([i for i in range(300, 1000)])
 wave_number = numpy.array([2.*numpy.pi/wave_length[i] for i in range(len(wave_length))])
 
