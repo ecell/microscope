@@ -617,6 +617,7 @@ class EPIFMConfigs() :
 
 
 
+
     def set_efficiency(self, array, index=1) :
 
 	if (len(array[0]) < 3) : index = 1
@@ -786,7 +787,6 @@ class EPIFMConfigs() :
 
 
 
-
     def set_PSF_detector(self, Mag) :
 
         r = self.radial
@@ -806,7 +806,7 @@ class EPIFMConfigs() :
 
         # Detector : Quantum Efficiency
 	# Convertion of photons to photoelectrons
-        I = I*self.detector_qeff
+	I = I*self.detector_qeff
 
 
 	# For normalization
@@ -814,18 +814,18 @@ class EPIFMConfigs() :
 
 
         # PSF : Focal Depth
-        n1 = self.objective_Ng
-        n2 = self.objective_Nm
-
-        depth_1st = n1/(2.0*n2**2)*wave_length
-        depth_2nd = n1/(7*Mag*n2)
-
-        focal_depth = depth_1st + depth_2nd
-
-	psf_r  = numpy.array(map(lambda x : 1.00, r))
-        psf_z  = numpy.exp(-0.5*(z/focal_depth)**2)
-
-	psf_fd = numpy.array(map(lambda x : psf_r*x, psf_z))
+#        n1 = self.objective_Ng
+#        n2 = self.objective_Nm
+#
+#        depth_1st = n1/(2.0*n2**2)*wave_length
+#        depth_2nd = n1/(7*Mag*n2)
+#
+#        focal_depth = depth_1st + depth_2nd
+#
+#	psf_r  = numpy.array(map(lambda x : 1.00, r))
+#        psf_z  = numpy.exp(-0.5*(z/focal_depth)**2)
+#
+#	psf_fd = numpy.array(map(lambda x : psf_r*x, psf_z))
 
 
 	# PSF : Fluorophore
@@ -864,7 +864,8 @@ class EPIFMConfigs() :
 	    psf_fl = self.get_PSF_fluorophore(r, z, wave_length)
 
 
-	self.fluorophore_psf = psf_fl*psf_fd
+	self.fluorophore_psf = psf_fl
+
 
 
 
@@ -1120,10 +1121,10 @@ class EPIFMVisualizer() :
 		d = self.configs.depth
 
 		# get PSF (Light Source)
-		dd = abs(x_b - x_0)
+		d_s = abs(x_i - x_0)
 
-                if (dd < len(d)) :
-		    source_depth = dd
+                if (d_s < len(d)) :
+		    source_depth = d_s
                 else :
 		    source_depth = d[-1]
 
@@ -1144,10 +1145,12 @@ class EPIFMVisualizer() :
 
 
 		# get PSF (Fluorophore)
-		if (abs(x_i - x_0) >= len(d)) :
-		    fluo_depth = d[-1]
+		d_f = abs(x_i - x_0)
+
+		if (d_f < len(d)) :
+		    fluo_depth = d_f
 		else :
-		    fluo_depth = abs(x_i - x_0)
+		    fluo_depth = d[-1]
 
 		theta = numpy.linspace(0, 180, 181)
 
@@ -1348,7 +1351,7 @@ class EPIFMVisualizer() :
                             pos = self.get_coordinate(c_id)
                             p_i = numpy.array(pos)*voxel_size
 
-                            print j, p_i
+                            #print j, p_i
                             # get signal matrix
                             signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
 

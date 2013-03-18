@@ -134,20 +134,20 @@ class TIRFMConfigs(EPIFMConfigs) :
 
         if (ref > 0) :
 
-            penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))
+            self.penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
 
             print '--- TIRF Configuration : '
 
         else :
 
-            penetration_depth = float('inf')
+            self.penetration_depth = float('inf')
 
             print '--- EPIF Configuration : '
 
         print '\tPenetration Depth = ', self.penetration_depth, 'nm'
 
         psf_r  = numpy.array(map(lambda x : 1.00, r))
-        psf_z  = numpy.exp(-z/penetration_depth)
+        psf_z  = numpy.exp(-z/self.penetration_depth)
         psf_pd = numpy.array(map(lambda x : psf_r*x, psf_z))
 
         # Illumination PSF : Total
