@@ -23,7 +23,7 @@ def test_epifm() :
 	epifm.set_ScanLens(focal_length=50e-3)
 	epifm.set_Detector(detector='EMCCD', zoom=20.0, focal_point=(0.0,0.5,0.5), \
 			start_time=0, end_time=1, fps=1e+3, exposure_time=1e-3)
-	epifm.set_Movie(image_file_dir='./images_epifm', movie_filename='./movies/test_epifm.mp4')
+	epifm.set_Movie(image_file_dir='./images_epifm', movie_filename='./movies/epifm_movie.mp4')
 	#epifm.set_DataFile(['./data/lattice/test_model.h5'])
 	epifm.set_DataFile(['./data/lattice/test_cube1.h5'])
 
