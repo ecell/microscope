@@ -72,6 +72,8 @@ class TIRFMConfigs(EPIFMConfigs) :
         print '\tMirror Position = ', self.mirror_position
 
 
+
+
     def set_Illumination_path(self) :
 
         r = self.radial
@@ -81,48 +83,52 @@ class TIRFMConfigs(EPIFMConfigs) :
         hc = 2.00e-25
 
         # (1) light source
-        M2  = self.source_M2factor
-        width_source = self.source_radius
-        P_0 = self.source_power
-        wave_length = self.source_wavelength*1e-9
+        M2 = self.source_M2factor
+        w_source = self.source_radius
 
-        # calculate for single photon energy
+        # power [joules/sec]
+        P_0 = self.source_power
+
+        # single photon energy
+        wave_length = self.source_wavelength*1e-9
         E_wl = hc/wave_length
 
-        # convertion factor to the photon number
-        voxel_area = numpy.pi*(self.spatiocyte_VoxelRadius**2)
-        F0 = (voxel_area/E_wl)*self.detector_exposure_time
+        # photon per sec [photons/sec]
+        N_0 = P_0/E_wl
 
         # (2) beam expander
         f_1 = self.expander_focal_length1
         f_2 = self.expander_focal_length2
 
-        w_1 = M2*(wave_length*f_1)/(numpy.pi*width_source)
         w_p = self.expander_pinhole_radius
-        w_2 = w_1*numpy.sqrt(1 + ((wave_length*f_2)/(numpy.pi*w_1**2))**2)
 
-        # (3) scan lens
-        f_s = self.scanlens_focal_length
-        w_s = (wave_length*f_s)/(numpy.pi*w_2)
+        w_BE = (f_2/f_1)*w_source
 
-        # (4) tube lens
-        f_t = self.tubelens_focal_length
-        w_t = w_s*numpy.sqrt(1 + ((wave_length*f_t)/(numpy.pi*w_s**2))**2)
+        # (3) scan and tube lens
+        f_s  = self.scanlens_focal_length
+        f_t1 = self.tubelens_focal_length1
 
-        # (5) objective
+        w_tube = (f_t1/f_s)*w_BE
+
+        # (4) objective
         f_obj = self.objective_focal_length
-        w_obj = (wave_length*f_obj)/(numpy.pi*w_t)
+
+        # Rayleigh range
+        z_R = numpy.pi*w_tube**2/wave_length
+
+        # object distance to maximize image distance
+        s_obj = f_obj + z_R
+        w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
 
 
-        # Illumination PSF : (I) Beam Spread Function
-        w_z = w_obj*numpy.sqrt(1 + ((wave_length*z*1e-9)/(numpy.pi*w_obj**2))**2)
-        P_z = P_0*(1 - numpy.exp(-2*(w_p/w_z)**2))
+        # (I) Beam Flux [photons/(m^2 sec)] (r <--> z)
+        w_r = w_obj*numpy.sqrt(1 + ((wave_length*r*1e-9)/(numpy.pi*w_obj**2))**2)
+        N_r = N_0*(1 - numpy.exp(-2*(w_p/w_r)**2))
 
-        bsf = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(r*1e-9/y)**2), P_z, w_z))
+        #bsf = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(z*1e-9/y)**2), N_r, w_r))
+        flux = numpy.array(map(lambda x : (2*N_r)/(numpy.pi*w_r**2)*numpy.exp(-2*(x*1e-9/w_r)**2), z))
 
-        self.source_divergence = w_z
-
-        # Illumination PSF : (II) Penetration Depth Function
+        # (II) Penetration Depth Function
         n1 = self.objective_Ng
         n2 = self.objective_Nm
 
@@ -134,24 +140,24 @@ class TIRFMConfigs(EPIFMConfigs) :
 
         if (ref > 0) :
 
-            self.penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
+            penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
 
             print '--- TIRF Configuration : '
 
         else :
 
-            self.penetration_depth = float('inf')
+            penetration_depth = float('inf')
 
             print '--- EPIF Configuration : '
 
-        print '\tPenetration Depth = ', self.penetration_depth, 'nm'
+        print '\tPenetration Depth = ', penetration_depth, 'nm'
 
-        psf_r  = numpy.array(map(lambda x : 1.00, r))
-        psf_z  = numpy.exp(-z/self.penetration_depth)
-        psf_pd = numpy.array(map(lambda x : psf_r*x, psf_z))
+        func_r  = numpy.array(map(lambda x : 1.00, r))
+        func_z  = numpy.exp(-z/penetration_depth)
+        func_pd = numpy.array(map(lambda x : func_r*x, func_z))
 
-        # Illumination PSF : Total
-        self.source_psf = F0*bsf*psf_pd
+        # Beam flux
+        self.source_flux = flux*func_pd
 
 
 

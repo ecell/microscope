@@ -7,11 +7,12 @@ import sys
 import os
 import copy
 import tempfile
-import time
 import math
 import operator
 import random
 import h5py
+import ctypes
+import multiprocessing
 
 import pylab
 import scipy
@@ -19,6 +20,8 @@ import numpy
 import Image
 
 import parameter_configs
+
+from time import sleep
 
 from scipy.special import j0
 from scipy.interpolate import interp1d
@@ -1010,8 +1013,7 @@ class EPIFMVisualizer() :
 	        point_z = aGlobalRow*2*norm_voxel_radius + ((aGlobalLayer+aGlobalCol)%2)*norm_voxel_radius
 	        point_x = aGlobalCol*theHCPh
 
-		#return point_x, point_y, point_z
-		return point_y, point_x, point_z
+		return point_x, point_y, point_z
 
 
 
@@ -1283,6 +1285,27 @@ class EPIFMVisualizer() :
 		return plane
 
 
+	def get_molecule_plane(self, j, cell, data, Norm, p_b, p_0) :
+
+		voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+
+		# particles coordinate, species and lattice IDs
+                c_id, s_id, l_id = data
+
+                # particles coordinate in real(nm) scale
+                pos = self.get_coordinate(c_id)
+                p_i = numpy.array(pos)*voxel_size
+
+                # get signal matrix
+                signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
+
+		#print j, p_i, numpy.amax(signal)
+
+                # add signal matrix to image plane
+                cell = self.overwrite(cell, signal, p_i)
+
+
+
 
         def output_frames(self, num_div=1) :
 
@@ -1320,6 +1343,8 @@ class EPIFMVisualizer() :
                 # create frame data composed by frame element data
 		count = int((time - t0)/frame_interval)
 
+		# set number of processors
+		n_cores = multiprocessing.cpu_count()
 
 		while (time < end) :
 
@@ -1329,7 +1354,11 @@ class EPIFMVisualizer() :
 
                     print 'time : ', time, ' sec'
 
-                    cell = numpy.zeros(shape=(Nz, Ny))
+		    # define cell
+                    #cell = numpy.zeros(shape=(Nz, Ny))
+		    mp_arr = multiprocessing.Array(ctypes.c_double, Nz*Ny)
+		    np_arr = numpy.frombuffer(mp_arr.get_obj())
+		    cell = np_arr.reshape((Nz,Ny))
 
 		    count_start = count*delta_frame
 		    count_end = (count + 1)*delta_frame
@@ -1346,22 +1375,17 @@ class EPIFMVisualizer() :
 
 			Norm = numpy.exp(-(i_time - time)/exposure_time)
 
-			# loop for particles
+			# loop for particles (multiprocessing)
+			jobs = []
+
 			for j in range(total) :
+			    proc = multiprocessing.Process(target=self.get_molecule_plane, args=(j, cell, data[j], Norm, p_0, p_b))
+			    jobs.append(proc)
+                            proc.start()
+                            sleep(0.1)
 
-			    c_id, s_id, l_id = data[j]
-
-                            # particles coordinate in real(nm) scale
-                            pos = self.get_coordinate(c_id)
-                            p_i = numpy.array(pos)*voxel_size
-
-			    #print j, data[j]
-                            # get signal matrix
-                            signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
-
-                            # add signal matrix to image plane
-                            cell = self.overwrite(cell, signal, p_i)
-
+                        for j in range(total) :
+			    jobs[j].join()
 
                     #fig = pylab.figure()
                     #spec_scale = numpy.linspace(numpy.amin(cell), numpy.amax(cell), 200, endpoint=True)
@@ -1490,12 +1514,6 @@ class EPIFMVisualizer() :
 		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
 		return camera_pixel
-
-                # save image to file
-                #max_bit = 2**self.configs.detector_ADC_bit
-
-                #toimage(camera_pixel, cmin=0, cmax=max_bit).save(self.image_file_name)
-                #toimage(camera_pixel, cmin=0, cmax=numpy.amax(camera_pixel)).save(self.image_file_name)
 
 		#z = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
 		#y = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
