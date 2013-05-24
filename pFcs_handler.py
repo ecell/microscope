@@ -15,7 +15,7 @@ import h5py
 import ctypes
 import multiprocessing
 
-import pylab
+#import pylab
 import scipy
 import numpy
 
@@ -27,7 +27,7 @@ from time import sleep
 from scipy.special import j0
 from scipy.misc    import toimage
 
-from matplotlib.backends.backend_pdf import PdfPages
+#from matplotlib.backends.backend_pdf import PdfPages
 
 IMAGE_SIZE_LIMIT=3000
 
@@ -126,12 +126,15 @@ class FCSConfigs(EPIFMConfigs) :
         s_obj = f_obj + z_R
         w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
 
-
         # Beam Flux [photons/(m^2 sec)]
         w_z = w_obj*numpy.sqrt(1 + ((wave_length*z*1e-9)/(numpy.pi*w_obj**2))**2)
         N_z = N_0*(1 - numpy.exp(-2*(w_p/w_z)**2))
 
         self.source_flux = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(r*1e-9/y)**2), N_z, w_z))
+
+	# Temporaly : wide field view
+        #func_r  = numpy.array(map(lambda x : 1.00, r))
+        #self.source_flux = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*func_r, N_z, w_z))
 
 
 
@@ -163,10 +166,11 @@ class FCSConfigs(EPIFMConfigs) :
         # set image scaling factor
         voxel_radius = self.spatiocyte_VoxelRadius
 
-        view = (2.0*self.pinholelens_radius)/(2.0*voxel_radius)
+        view = self.detector_pixel_length/(2.0*voxel_radius)
         zoom = self.detector_zoom
 
         self.image_scaling = view/(Mag*zoom)
+
 
         # Detector PSF
         self.set_PSF_detector(Mag)
@@ -180,20 +184,22 @@ class FCSVisualizer(EPIFMVisualizer) :
 	FCS Visualization class of e-cell simulator
 	'''
 
-	def __init__(self, configs=FCSConfigs(), output_file=None) :
+	def __init__(self, configs=FCSConfigs()) :
 
 		assert isinstance(configs, FCSConfigs)
 		self.configs = configs
-		self.output_file = output_file
 
 		"""
 		Check and create the folder for image file.
 		"""
 		if not os.path.exists(self.configs.movie_image_file_dir):
 		    os.makedirs(self.configs.movie_image_file_dir)
-		else:
-		    for file in os.listdir(self.configs.movie_image_file_dir):
-			os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+		#else:
+		#    for file in os.listdir(self.configs.movie_image_file_dir):
+		#	os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+
+                if not os.path.exists(self.configs.output_file_dir):
+                    os.makedirs(self.configs.output_file_dir)
 
                 """
                 set Secondary Image Size and Boundary
@@ -204,13 +210,6 @@ class FCSVisualizer(EPIFMVisualizer) :
                 if self.img_width > IMAGE_SIZE_LIMIT or self.img_height > IMAGE_SIZE_LIMIT :
                         raise VisualizerErrror('Image size is bigger than the limit size')
 
-
-                """
-		Output Data
-                """
-                with open(self.output_file, 'w') as output :
-                    output.write('#time\tintensity\t\n')
-                    output.write('\n')
 
                 """
                 Optical Path
@@ -250,27 +249,35 @@ class FCSVisualizer(EPIFMVisualizer) :
                 t1 = self.configs.spatiocyte_data[1][0]
 
 		delta_data  = t1 - t0
-                delta_frame = int(frame_interval/delta_data)
+                delta_frame = int(round(frame_interval/delta_data))
 
                 # create frame data composed by frame element data
-		count = int((time - t0)/frame_interval)
+		count = int(round(time/frame_interval))
+		count0 = count
+
+                # set number of processors
+                max_runs = 200
+                #n_cores = multiprocessing.cpu_count()
 
 		while (time < end) :
 
                     # set image file name
-                    self.image_file_name = os.path.join(self.configs.movie_image_file_dir, \
+                    image_file_name = os.path.join(self.configs.movie_image_file_dir, \
                                                 self.configs.movie_image_file_name_format % (count))
+                    # set output data file name
+                    output_file_name = os.path.join(self.configs.output_file_dir, \
+                                                self.configs.output_file_name_format % (count))
 
-                    print 'time : ', time, ' sec'
+                    print 'time : ', time, ' sec (', count, ')'
 
-		    # define cell
+                    # define cell
                     #cell = numpy.zeros(shape=(Nz, Ny))
                     mp_arr = multiprocessing.Array(ctypes.c_double, Nz*Ny)
                     np_arr = numpy.frombuffer(mp_arr.get_obj())
                     cell = np_arr.reshape((Nz,Ny))
 
-		    count_start = count*delta_frame
-		    count_end = (count + 1)*delta_frame
+                    count_start = (count - count0)*delta_frame
+                    count_end = (count - count0 + 1)*delta_frame
 
 		    frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
@@ -282,36 +289,51 @@ class FCSVisualizer(EPIFMVisualizer) :
 			data   = frame_data[i][1]
 			total  = len(data)
 
-			Norm = numpy.exp(-(i_time - time)/exposure_time)
+			Norm = 1.0#numpy.exp(-(i_time - time)/exposure_time)
 
                         # loop for particles (multiprocessing)
                         jobs = []
 
                         for j in range(total) :
-                            proc = multiprocessing.Process(target=self.get_molecule_plane, args=(j, cell, data[j], Norm, p_0, p_b))
+                            proc = multiprocessing.Process(target=self.get_molecule_plane, args=(cell, i_time, data[j], p_0, p_b))
                             jobs.append(proc)
-                            proc.start()
-                            sleep(0.1)
 
-                        for j in range(total) :
-                            jobs[j].join()
+                        run = 0
+                        while (run < total) :
 
-		    # Output image : Assuming CCD camera output
-                    camera = self.detector_output_CCD(cell)
-                    camera.astype('uint%d' % (self.configs.detector_ADC_bit))
+                            for j in range(max_runs) :
 
-                    # save image to file
-                    toimage(camera, low=numpy.amin(camera), high=numpy.amax(camera), mode='I').save(self.image_file_name)
+                                if (run + j < total) :
+                                    jobs[run+j].start()
+                                    sleep(0.1)
 
-		    # PMT Detector output : intensity (ADC count)
-                    intensity = self.detector_output_PMT(cell, p_b, p_0)
+                            for j in range(max_runs) :
 
-		    data_line  = str(time) + '\t'
-		    data_line += str(intensity) + '\t'
-		    data_line += '\n'
+                                if (run + j < total) :
+                                    jobs[run+j].join()
 
-		    with open(self.output_file, 'a') as output :
-			output.write(data_line)
+                            run += max_runs
+
+
+                    if (numpy.amax(cell) > 0) :
+
+			# Output image : Assuming CCD camera output
+			camera = self.detector_output_CCD(cell)
+			camera.astype('uint%d' % (self.configs.detector_ADC_bit))
+
+			# save image to file
+			toimage(camera, low=numpy.amin(camera), high=numpy.amax(camera), mode='I').save(image_file_name)
+
+			# PMT Detector output : intensity (ADC count)
+			intensity = self.detector_output_PMT(cell)
+
+			data_line  = str(time) + '\t'
+			data_line += str(intensity) + '\t'
+			data_line += '\n'
+
+			# save intensity data to file
+			with open(output_file_name, 'w') as output :
+			    output.write(data_line)
 
 
 		    time  += frame_interval
@@ -324,11 +346,12 @@ class FCSVisualizer(EPIFMVisualizer) :
 		# Detector Output
 		voxel_radius = self.configs.spatiocyte_VoxelRadius
                 voxel_size = (2.0*voxel_radius)/1e-9
+		re_scaling = (self.configs.image_scaling/self.configs.detector_pixel_length)*(2.0*self.configs.pinholelens_radius)
 
 		Nw_pixel = self.img_width
 		Nh_pixel = self.img_height
 
-		Np = int(self.configs.image_scaling*voxel_size)
+		Np = int(re_scaling*voxel_size)
 
                 # image in nm-scale
 		Nw_camera = Nw_pixel*Np
@@ -429,57 +452,92 @@ class FCSVisualizer(EPIFMVisualizer) :
 
 		return camera_pixel
 
-		# pinhole in pixel-scale
-                #N_ph = (self.configs.image_scaling*voxel_size)
-                #PH_radius = (N_ph/Np)/2.0
+#		# pinhole in pixel-scale
+#                N_ph = (self.configs.image_scaling*voxel_size)
+#                PH_radius = 4.0*N_ph/Np
+#
+#                w = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
+#                h = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
+#		W, H = numpy.meshgrid(w, h)
+#
+#		y0 = Nw_pixel/2.0
+#		z0 = Nh_pixel/2.0
+#
+#		func = lambda y, z : abs(PH_radius**2 - ((y - y0)**2 + (z - z0)**2))
+#		pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 4e+5 if func(y, z) < 3 else 0.00, w), h))
+#
+#		# add pinhole to camera
+#		camera_pixel += pinhole_pixel
+#
+#		return camera_pixel
 
-                #w = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
-                #h = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
-		#W, H = numpy.meshgrid(w, h)
-
-		#y0 = Nw_pixel/2.0
-		#z0 = Nh_pixel/2.0
-
-		#func = lambda y, z : abs(PH_radius**2 - ((y - y0)**2 + (z - z0)**2))
-		#pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 3e+5 if func(y, z) < 5 else 0.00, w), h))
-
-		# add pinhole to camera
-		#camera_pixel += pinhole_pixel
 
 
-
-	def detector_output_PMT(self, cell, p_b, p_0) :
+	def detector_output_PMT(self, cell) :
 
                 voxel_size = (2.0*self.configs.spatiocyte_VoxelRadius)/1e-9
 
-		# pinhole radius
-		PH_radius = int((self.configs.image_scaling*voxel_size)/2.0)
+                Nw_pixel = 1#self.img_width
+                Nh_pixel = 1#self.img_height
+
+                # pinhole size
+                Np = int(self.configs.image_scaling*voxel_size)
 
                 # image in nm-scale
-		x_b, y_b, z_b = p_b
-		x_0, y_0, z_0 = p_0
+                Nw_camera = Nw_pixel*Np
+                Nh_camera = Nh_pixel*Np
 
-                #func = lambda y, z : (y - y0)**2 + (z - z0)**2
-                #pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 1.0 if func(y, z) < PH_radius**2 else 0.00, w), h))
+                Nw_cell = len(cell)
+                Nh_cell = len(cell[0])
 
-		pinhole_pixel = copy.copy(cell)
+                if (Nw_camera > Nw_cell) :
 
-                w_cel_from = y_b - PH_radius
-                w_cel_to   = y_b + PH_radius
+                        w_cam_from = int((Nw_camera - Nw_cell)/2.0)
+                        w_cam_to   = w_cam_from + Nw_cell
+                        w_cel_from = 0
+                        w_cel_to   = Nw_cell
 
-                h_cel_from = z_b - PH_radius
-                h_cel_to   = z_b + PH_radius
+                else :
+
+                        w_cam_from = 0
+                        w_cam_to   = Nw_camera
+                        w_cel_from = int((Nw_cell - Nw_camera)/2.0)
+                        w_cel_to   = w_cel_from + Nw_camera
+
+                if (Nh_camera > Nh_cell) :
+
+                        h_cam_from = int((Nh_camera - Nh_cell)/2.0)
+                        h_cam_to   = h_cam_from + Nh_cell
+                        h_cel_from = 0
+                        h_cel_to   = Nh_cell
+
+                else :
+
+                        h_cam_from = 0
+                        h_cam_to   = int(Nh_camera)
+                        h_cel_from = int((Nh_cell - Nh_camera)/2.0)
+                        h_cel_to   = h_cel_from + Nh_camera
+
 
 		# image in nm-scale
 		plane = cell[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
-		# integrate photons through the pinhole
+		# get signal through the pinhole
 		signal = numpy.sum(plane)
 
-		# convert signals in photoelectron to count
-		intensity = self.A2D_converter(signal)
+                # get background
+                background = 0
 
-		return intensity
+                # get noise
+                noise = self.get_noise(signal + background)
 
+                # get signal + noise
+                M  = self.configs.detector_emgain
+                PE = numpy.random.poisson(M*(signal + background + noise), None)
+
+                # convert signals in photoelectron to count
+                ADC = self.A2D_converter(PE)
+
+		return ADC
 
 

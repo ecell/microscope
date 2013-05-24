@@ -13,17 +13,18 @@ import operator
 import random
 import h5py
 
-import pylab
+#import pylab
 import scipy
 import numpy
 
 import parameter_configs
-from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+#from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+from pEpifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
 
 from scipy.special import j0
 from scipy.misc    import toimage
 
-from matplotlib.backends.backend_pdf import PdfPages
+#from matplotlib.backends.backend_pdf import PdfPages
 
 IMAGE_SIZE_LIMIT=3000
 
@@ -63,14 +64,12 @@ class TIRFMConfigs(EPIFMConfigs) :
 
 
 
-    def set_Mirror(self, position = None ) :
+    def set_EvanescentField(self, depth = None) :
 
-        print '--- Mirror :'
+        print '--- Evanescent Field :'
+        print '\tPenetration Depth = ', depth, 'nm'
 
-        self._set_data('mirror_position', position)
-
-        print '\tMirror Position = ', self.mirror_position
-
+        self.penetration_depth = depth
 
 
 
@@ -129,31 +128,31 @@ class TIRFMConfigs(EPIFMConfigs) :
         flux = numpy.array(map(lambda x : (2*N_r)/(numpy.pi*w_r**2)*numpy.exp(-2*(x*1e-9/w_r)**2), z))
 
         # (II) Penetration Depth Function
-        n1 = self.objective_Ng
-        n2 = self.objective_Nm
-
-        length = math.sqrt(1 - self.objective_sin_max**2)/self.objective_sin_max
-        tan_th = self.mirror_position/length
-        sin2   = tan_th/math.sqrt(1 + tan_th**2)
-
-        ref = n1**2*sin2 - n2**2
-
-        if (ref > 0) :
-
-            penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
-
-            print '--- TIRF Configuration : '
-
-        else :
-
-            penetration_depth = float('inf')
-
-            print '--- EPIF Configuration : '
-
-        print '\tPenetration Depth = ', penetration_depth, 'nm'
+#        n1 = self.objective_Ng
+#        n2 = self.objective_Nm
+#
+#        length = math.sqrt(1 - self.objective_sin_max**2)/self.objective_sin_max
+#        tan_th = self.mirror_position/length
+#        sin2   = tan_th/math.sqrt(1 + tan_th**2)
+#
+#        ref = n1**2*sin2 - n2**2
+#
+#        if (ref > 0) :
+#
+#            penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
+#
+#            print '--- TIRF Configuration : '
+#
+#        else :
+#
+#            penetration_depth = float('inf')
+#
+#            print '--- EPIF Configuration : '
+#
+#        print '\tPenetration Depth = ', penetration_depth, 'nm'
 
         func_r  = numpy.array(map(lambda x : 1.00, r))
-        func_z  = numpy.exp(-z/penetration_depth)
+        func_z  = numpy.exp(-z/self.penetration_depth)
         func_pd = numpy.array(map(lambda x : func_r*x, func_z))
 
         # Beam flux
@@ -178,9 +177,9 @@ class TIRFMVisualizer(EPIFMVisualizer) :
 		"""
 		if not os.path.exists(self.configs.movie_image_file_dir):
 		    os.makedirs(self.configs.movie_image_file_dir)
-		else:
-		    for file in os.listdir(self.configs.movie_image_file_dir):
-			os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+		#else:
+		#    for file in os.listdir(self.configs.movie_image_file_dir):
+	#		os.remove(os.path.join(self.configs.movie_image_file_dir, file))
 
                 """
                 Image Size and Boundary

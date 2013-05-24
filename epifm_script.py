@@ -3,10 +3,13 @@
 
     User script to create the image from the simulated Epifluoroscence Microscopy (EPIFM)
 """
+import sys
+import os
 
+#from epifm_handler import EPIFMConfigs, EPIFMVisualizer
 from pEpifm_handler import EPIFMConfigs, EPIFMVisualizer
 
-def test_epifm() :
+def test_epifm(t0, t1) :
 
 	# create EPIF Microscopy
 	epifm = EPIFMConfigs()
@@ -22,10 +25,10 @@ def test_epifm() :
 	epifm.set_TubeLens1(focal_length=160e-3)
 	epifm.set_ScanLens(focal_length=50e-3)
 	epifm.set_TubeLens2(focal_length=200e-3)
-	epifm.set_Detector(detector='EMCCD', zoom=2, emgain=100, focal_point=(0.5,0.5,0.5), \
-			start_time=0, end_time=1, fps=30, exposure_time=33e-3)
-	epifm.set_Movie(image_file_dir='./images', movie_filename='./movies/epifm_movie.mp4')
-	epifm.set_DataFile(['./data/lattice/test_cube2.h5'])
+	epifm.set_Detector(detector='EMCCD', zoom=2, emgain=500, focal_point=(0.0,0.5,0.5), \
+			start_time=t0, end_time=t1, fps=1/33e-3, exposure_time=33e-3)
+	epifm.set_Movie(image_file_dir='./images_epifm', movie_filename='./movies/epifm_movie.mp4')
+	epifm.set_DataFile(['./data/lattice/test_model.h5'])
 
 	# create image and movie
 	create = EPIFMVisualizer(configs=epifm)
@@ -37,5 +40,9 @@ def test_epifm() :
 
 if __name__ == "__main__":
 
-	test_epifm()
+	t0 = float(sys.argv[1])
+	t1 = float(sys.argv[2])
+
+	test_epifm(t0, t1)
+
 
