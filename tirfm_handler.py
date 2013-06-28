@@ -20,6 +20,7 @@ import numpy
 import parameter_configs
 #from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
 from pEpifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+from effects_handler import PhysicalEffects
 
 from scipy.special import j0
 from scipy.misc    import toimage
@@ -96,36 +97,37 @@ class TIRFMConfigs(EPIFMConfigs) :
         N_0 = P_0/E_wl
 
         # (2) beam expander
-        f_1 = self.expander_focal_length1
-        f_2 = self.expander_focal_length2
+#        f_1 = self.expander_focal_length1
+#        f_2 = self.expander_focal_length2
 
-        w_p = self.expander_pinhole_radius
+#        w_p = self.expander_pinhole_radius
 
-        w_BE = (f_2/f_1)*w_source
+#        w_BE = (f_2/f_1)*w_source
 
         # (3) scan and tube lens
-        f_s  = self.scanlens_focal_length
-        f_t1 = self.tubelens_focal_length1
+#        f_s  = self.scanlens_focal_length
+#        f_t1 = self.tubelens_focal_length1
 
-        w_tube = (f_t1/f_s)*w_BE
+#        w_tube = (f_t1/f_s)*w_BE
 
         # (4) objective
-        f_obj = self.objective_focal_length
+#        f_obj = self.objective_focal_length
 
         # Rayleigh range
-        z_R = numpy.pi*w_tube**2/wave_length
+#        z_R = numpy.pi*w_tube**2/wave_length
 
         # object distance to maximize image distance
-        s_obj = f_obj + z_R
-        w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
+#        s_obj = f_obj + z_R
+#        w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
 
 
         # (I) Beam Flux [photons/(m^2 sec)] (r <--> z)
-        w_r = w_obj*numpy.sqrt(1 + ((wave_length*r*1e-9)/(numpy.pi*w_obj**2))**2)
-        N_r = N_0*(1 - numpy.exp(-2*(w_p/w_r)**2))
+#        w_r = w_obj*numpy.sqrt(1 + ((wave_length*r*1e-9)/(numpy.pi*w_obj**2))**2)
+#        N_r = N_0*(1 - numpy.exp(-2*(w_p/w_r)**2))
 
         #bsf = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(z*1e-9/y)**2), N_r, w_r))
-        flux = numpy.array(map(lambda x : (2*N_r)/(numpy.pi*w_r**2)*numpy.exp(-2*(x*1e-9/w_r)**2), z))
+        #flux = numpy.array(map(lambda x : (2*N_r)/(numpy.pi*w_r**2)*numpy.exp(-2*(x*1e-9/w_r)**2), z))
+        flux = numpy.array(map(lambda x : (2*N_0)/(numpy.pi*w_source**2), z))
 
         # (II) Penetration Depth Function
 #        n1 = self.objective_Ng
@@ -158,6 +160,7 @@ class TIRFMConfigs(EPIFMConfigs) :
         # Beam flux
         self.source_flux = flux*func_pd
 
+	print 'Photon Flux (Surface) :', self.source_flux[0][0]
 
 
 
@@ -167,10 +170,13 @@ class TIRFMVisualizer(EPIFMVisualizer) :
 	TIRFM visualization class
 	'''
 
-	def __init__(self, configs=TIRFMConfigs()) :
+	def __init__(self, configs=TIRFMConfigs(), effects=PhysicalEffects()) :
 
 		assert isinstance(configs, TIRFMConfigs)
 		self.configs = configs
+
+                assert isinstance(effects, PhysicalEffects)
+                self.effects = effects
 
 		"""
 		Check and create the folder for image file.
@@ -194,6 +200,4 @@ class TIRFMVisualizer(EPIFMVisualizer) :
                 set optical path from source to detector
                 """
 		self.configs.set_Optical_path()
-
-
 
