@@ -1,14 +1,15 @@
 """
- param_configs.py:
+    param_configs.py:
 
     Parameter Configurations for Fluoresence Microscope
 
-	Fluorophore
+	Fluorophore (PSF)
 	  -- Selected Fluorophore (Airy)
-	  -- Gaussian Point Spreading Function (PSF)
+	  -- Gaussian Point Spreading Function
 	Light Source
           -- Selected Light Source
           -- Gaussian Beam
+	Porlarizer
 	Mirror Position
 	Excitation Filter
 	Objective
@@ -16,7 +17,8 @@
 	Emission Filter
 	Scan Lens
 	Tube Lens
-	Detector
+	Pinhole
+	Detector (CCD, CMOS, PMT, ADP, ...)
 
 """
 
@@ -33,6 +35,7 @@ wave_length = numpy.array([i for i in range(300, 1000)])
 wave_number = numpy.array([2.*numpy.pi/wave_length[i] for i in range(len(wave_length))])
 
 image_scaling = 1.0
+image_magnification = 1.0
 
 #-----------------------------
 # Particles list
@@ -44,7 +47,7 @@ particles_list  = None
 # Fluorophore
 #-----------------------------
 fluorophore_type = 'Gauss'
-fluorophore_lifetime = 1e-4 # sec
+fluorophore_lifetime = 10e-9 # sec
 #fluoex_eff  = numpy.array([0.0 for i in range(len(wave_length))])
 #fluoem_eff  = numpy.array([0.0 for i in range(len(wave_length))])
 fluoex_eff  = [0.0 for i in range(len(wave_length))]
@@ -62,11 +65,6 @@ psf_cutoff = (400, 100)	# cutoff range (radius, depth)
 psf_file_name_format = 'psf_%04d.png'	# Image file name
 
 penetration_depth = 200 # nm
-
-#-----------------------------
-# Scattering Matrix of photon-matter interactions 
-#-----------------------------
-scattering_matrix = None
 
 #-----------------------------
 # Incident Beam Condition
@@ -184,15 +182,23 @@ detector_qeff  = numpy.array([1.0 for i in range(len(wave_length))])
 #-----------------------------
 movie_background_color = (0, 0, 0)
 movie_image_file_dir = "./images"
-movie_image_file_name_format = 'image_%04d.png' # Must be compatible with FFmpeg's input-file notation
+movie_image_file_name_format = 'image_%07d.png' # Must be compatible with FFmpeg's input-file notation
 #movie_image_file_name_format = 'image_%04d.tiff' # Must be compatible with FFmpeg's input-file notation
 movie_cleanup_image_file_dir = False
 movie_filename = "./movies/movie.mp4"
 
 #-----------------------------
+# Output/Data
+#-----------------------------
+output_file_dir = "./output"
+output_file_name_format = 'output_%07d.dat' # Must be compatible with FFmpeg's input-file notation
+#movie_image_file_name_format = 'image_%04d.tiff' # Must be compatible with FFmpeg's input-file notation
+
+#-----------------------------
 # Spatiocyte
 #-----------------------------
 spatiocyte_data = []
+spatiocyte_observable = []
 
 spatiocyte_species_id = []
 spatiocyte_index      = []
@@ -208,3 +214,8 @@ spatiocyte_theRowSize    = None
 spatiocyte_theLayerSize  = None
 spatiocyte_theColSize    = None
 
+#-----------------------------
+# Spatiocyte Boundary condition
+#-----------------------------
+spatiocyte_bc_switch = False
+spatiocyte_bc = []
