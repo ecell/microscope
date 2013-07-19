@@ -9,7 +9,6 @@ import copy
 import tempfile
 import math
 import operator
-import random
 import h5py
 import csv
 import ctypes
@@ -18,10 +17,8 @@ import multiprocessing
 #import pylab
 import scipy
 import numpy
-import Image
 
 import parameter_configs
-import parameter_effects
 from effects_handler import PhysicalEffects
 
 from time import sleep

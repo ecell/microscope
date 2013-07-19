@@ -4,7 +4,6 @@
     User script to create the image from the simulated Total Internal Refractive Fluoroscence Microscopy (TIRFM)
 """
 import sys
-import os
 
 from tirfm_handler   import TIRFMConfigs, TIRFMVisualizer
 from effects_handler import PhysicalEffects
