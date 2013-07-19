@@ -5,9 +5,12 @@ Comment,""
 Public,1
 image_size,512
 pixel_length,16e-6
+max_charge,800000
 sat_charge,370000
-readout,8.0
-dark_current,0.02
+ADC_bit,16
+ADC_offset,2000
+readout,10
+dark_current,0.01
 excess,2.00
 QE
 200,0.251907545478

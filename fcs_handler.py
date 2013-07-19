@@ -151,7 +151,7 @@ class FCSConfigs(EPIFMConfigs) :
         f_s = self.scanlens_focal_length
 
         # (5) pinhole lens in front of detector
-        f_p = self.pinhole_focal_length
+        f_p = self.pinholelens_focal_length
 
         # Magnification : scan to pinhole lens
         Mag = (f_p/f_s)*Mag
@@ -274,7 +274,7 @@ class FCSVisualizer(EPIFMVisualizer) :
 			data   = frame_data[i][1]
 			total  = len(data)
 
-			Norm = numpy.exp(-(i_time - time)/exposure_time)
+			Norm = 1.0#numpy.exp(-(i_time - time)/exposure_time)
 
 			# loop for particles
 			for j in range(total) :
@@ -285,11 +285,6 @@ class FCSVisualizer(EPIFMVisualizer) :
                             pos = self.get_coordinate(c_id)
                             p_i = numpy.array(pos)*voxel_size
 
-			    # get distance between beam center and particle positions
-			    #distance = numpy.sqrt(numpy.sum((p_i - p_b)**2))
-			    #cutoff   = numpy.sqrt(400.**2 + 800.**2)
-
-			    #if (distance < cutoff) :
 			    # get signal matrix
 			    signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
 
@@ -298,6 +293,12 @@ class FCSVisualizer(EPIFMVisualizer) :
 
 		    # Output image : Assuming CCD camera output
 		    self.detector_output_CCD(cell)
+
+                    camera = self.detector_output(cell)
+                    camera.astype('uint%d' % (self.configs.detector_ADC_bit))
+
+                    # save image to file
+                    toimage(camera, low=numpy.amin(camera), high=numpy.amax(camera), mode='I').save(self.image_file_name)
 
 		    # PMT Detector output : intensity (ADC count)
                     intensity = self.detector_output_PMT(cell, p_b, p_0)
@@ -318,17 +319,15 @@ class FCSVisualizer(EPIFMVisualizer) :
 	def detector_output_CCD(self, cell) :
 
 		# Detector Output
-                voxel_size = (2.0*self.configs.spatiocyte_VoxelRadius)/1e-9
+		voxel_radius = self.configs.spatiocyte_VoxelRadius
+                voxel_size = (2.0*voxel_radius)/1e-9
 
 		Nw_pixel = self.img_width
 		Nh_pixel = self.img_height
 
-                rescale = self.configs.detector_pixel_length/(2.0*self.configs.pinholelens_radius)
-		Np = int(self.configs.image_scaling*voxel_size*rescale)
+		Np = int(self.configs.image_scaling*voxel_size)
 
-                # image in pixel-scale
-                camera_pixel = numpy.zeros(shape=(Nw_pixel, Nh_pixel))
-
+                # image in nm-scale
 		Nw_camera = Nw_pixel*Np
 		Nh_camera = Nh_pixel*Np
 
@@ -370,12 +369,38 @@ class FCSVisualizer(EPIFMVisualizer) :
 		# convert image in nm-scale to pixel-scale
                 cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
 
-		for i in range(Nh_cell/Np) :
-		    for j in range(Nw_cell/Np) :
+		for i in range(Nw_cell/Np) :
+		    for j in range(Nh_cell/Np) :
 
+			# get signal
 			signal = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
-			cell_pixel[i][j] = self.A2D_converter(signal)
 
+			# get background
+			background = 0
+
+			# get noise
+			noise = self.get_noise(signal + background)
+
+			# get signal + noise
+			M  = self.configs.detector_emgain
+			PE = numpy.random.poisson(M*(signal + background + noise), None)
+
+			ADC = self.A2D_converter(PE)
+			cell_pixel[i][j] = ADC
+
+
+                # flat image in pixel-scale
+		signal = 0
+		background = 0
+		noise  = self.get_noise(signal + background)
+
+                PE = numpy.random.poisson(M*(signal + background + noise), Nw_pixel*Nh_pixel)
+		camera = numpy.array(map(lambda x : self.A2D_converter(x), PE))
+		camera_pixel = camera.reshape([Nw_pixel, Nh_pixel])
+
+		#camera_pixel = numpy.zeros(shape=(Nw_pixel, Nh_pixel))
+                #ADC0 = self.configs.detector_ADC_offset
+                #camera_pixel.fill(ADC0)
 
 		w_cam_from = int(w_cam_from/Np)
 		w_cam_to   = int(w_cam_to/Np)
@@ -396,41 +421,27 @@ class FCSVisualizer(EPIFMVisualizer) :
                 if   (ddh > 0) : h_cam_to = h_cam_to - ddh
                 elif (ddh < 0) : h_cel_to = h_cel_to - ddh
 
+
 		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
+		return camera_pixel
+
 		# pinhole in pixel-scale
-                N_ph = (self.configs.image_scaling*voxel_size)
-                PH_radius = (N_ph/Np)/2.0
+                #N_ph = (self.configs.image_scaling*voxel_size)
+                #PH_radius = (N_ph/Np)/2.0
 
-                w = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
-                h = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
-		W, H = numpy.meshgrid(w, h)
+                #w = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
+                #h = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
+		#W, H = numpy.meshgrid(w, h)
 
-		y0 = Nw_pixel/2.0
-		z0 = Nh_pixel/2.0
+		#y0 = Nw_pixel/2.0
+		#z0 = Nh_pixel/2.0
 
-		func = lambda y, z : abs(PH_radius**2 - ((y - y0)**2 + (z - z0)**2))
-		pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 3e+5 if func(y, z) < 5 else 0.00, w), h))
+		#func = lambda y, z : abs(PH_radius**2 - ((y - y0)**2 + (z - z0)**2))
+		#pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 3e+5 if func(y, z) < 5 else 0.00, w), h))
 
 		# add pinhole to camera
-		camera_pixel += pinhole_pixel
-
-                # save image to file
-                max_bit = 2**self.configs.detector_ADC_bit
-
-                toimage(camera_pixel, cmin=0, cmax=max_bit).save(self.image_file_name)
-                #toimage(camera_pixel, cmin=0, cmax=numpy.amax(camera_pixel)).save(self.image_file_name)
-
-		#z = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
-		#y = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
-		#Z, Y = numpy.meshgrid(z, y)
-
-		#fig = pylab.figure()
-		#spec_scale = numpy.linspace(0, max_bit, 200, endpoint=True)
-		#pylab.contour(Z, Y,  camera_pixel, spec_scale, linewidth=0.1, color='k')
-		#pylab.contourf(Z, Y, camera_pixel, cmap=pylab.cm.jet)
-		#pylab.show()
-		#exit()
+		#camera_pixel += pinhole_pixel
 
 
 

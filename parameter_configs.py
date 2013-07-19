@@ -160,12 +160,13 @@ detector_start_time = 0.0
 detector_end_time = None
 detector_exposure_time  = 0.033
 detector_fps = 1 #5-30
-detector_sat_charge = 370000.
-detector_max_charge = 600000.
+detector_ADC_satQ = 370000.
+detector_ADC_maxQ = 600000.
 detector_ADC_bit   = 16
-detector_ADC_const = 5.8
-detector_ADC_offset = 2000
-
+detector_ADC_gain = 5.8
+detector_fpn_type = None
+detector_fpn_offset = 2000
+detector_fpn_noise  = 10
 detector_readout = 0.0
 detector_dark_current = 0.0
 detector_excess = 1.0
@@ -182,8 +183,8 @@ detector_qeff  = numpy.array([1.0 for i in range(len(wave_length))])
 #-----------------------------
 movie_background_color = (0, 0, 0)
 movie_image_file_dir = "./images"
-movie_image_file_name_format = 'image_%07d.png' # Must be compatible with FFmpeg's input-file notation
-#movie_image_file_name_format = 'image_%04d.tiff' # Must be compatible with FFmpeg's input-file notation
+movie_image_file_name_format = 'image_%07d.png'
+#movie_image_file_name_format = 'image_%07d.tiff'
 movie_cleanup_image_file_dir = False
 movie_filename = "./movies/movie.mp4"
 

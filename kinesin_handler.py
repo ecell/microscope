@@ -13,32 +13,31 @@ import operator
 import random
 import csv
 
-import pylab
+#import pylab
 import scipy
 import numpy
 
 import parameter_configs
-#from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
-from pEpifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+#from epifm_handler import VisualizerError, ConfocalConfigs, ConfocalVisualizer
+from confm_handler import ConfocalConfigs, ConfocalVisualizer
 
 from scipy.special import j0
 from scipy.misc    import toimage
 
-from matplotlib.backends.backend_pdf import PdfPages
+#from matplotlib.backends.backend_pdf import PdfPages
 
 IMAGE_SIZE_LIMIT=3000
 
 
-class KinesinConfigs(EPIFMConfigs) :
+class KinesinConfigs(ConfocalConfigs) :
 
     '''
     Kinesin configration
 
-	EPIFM configuration
+	Confocal configuration
 	    +
-	read off-lattice coordinate
+	read spatiocyte coordinate log
     '''
-
     def __init__(self, user_configs_dict = None):
 
         # default setting
@@ -63,10 +62,10 @@ class KinesinConfigs(EPIFMConfigs) :
 
 
 
-    def set_DataFile(self, csv_file_path_list) :
+    def set_DataFile(self, csv_file_path_list, observable=None) :
 
-        # read hdf5 lattice file
-        for csv_file_path in csv_file_path_list :
+	# read hdf5 lattice file
+	for csv_file_path in csv_file_path_list :
 
             try :
 
@@ -82,26 +81,51 @@ class KinesinConfigs(EPIFMConfigs) :
 		interval = float(header[0].split('=')[1])
 		lengths  = [(float(header[3].split('=')[1]), float(header[2].split('=')[1]), float(header[1].split('=')[1]))]
 		voxel_r  = float(header[4].split('=')[1])
-		s_id = 6
-		l_id = 0
+		species_id = []
+		species_index  = []
+		species_radius = []
+
+		tmp0 = header[5:]
+
+		for i in range(len(tmp0)) :
+
+		    tmp1 = tmp0[i].split('=')
+
+		    species_id.append(i)
+		    species_radius.append(float(tmp1[1]))
+
+		    tmp2 = tmp1[0].split(']')
+		    tmp3 = tmp2[0].split(':')
+
+		    species_index.append(str(tmp3[1]))
+
 
                 ### particle data in time-series
                 data = []
 
+		start = self.detector_start_time
+		end   = self.detector_end_time
 		time = 0
-                for i in range(1, len(dataset)) :
 
-                    data_i = dataset[i]
+                for i in range(1, len(dataset), len(species_id)) :
+
 		    particles = []
 
-		    for j in range(1, len(data_i), 3) :
+                    if (time >= start and time < end) :
 
-			c_id = (float(data_i[j]), float(data_i[j+1]), float(data_i[j+2]))
-			particles.append((c_id, s_id, l_id))
+			for k in range(len(species_id)) :
+
+			    data_ik = dataset[i+k]
+			    s_id = species_id[k]
+			    l_id = 0
+
+			    for j in range(1, len(data_ik), 3) :
+
+				c_id = (float(data_ik[j]), float(data_ik[j+1]), float(data_ik[j+2]))
+				particles.append((c_id, s_id, l_id))
 			
-
-		    element = [time, particles]
-                    data.append(element)
+			element = [time, particles]
+			data.append(element)
 
 		    time += interval
 
@@ -112,10 +136,10 @@ class KinesinConfigs(EPIFMConfigs) :
                 self._set_data('spatiocyte_data', data)
 
                 # get species properties
-                #self._set_data('spatiocyte_species_id', map(lambda x : x[0], species))
-                #self._set_data('spatiocyte_index',      map(lambda x : x[1], species))
-                #self._set_data('spatiocyte_diffusion',  map(lambda x : x[3], species))
-                #self._set_data('spatiocyte_radius',     map(lambda x : x[2], species))
+                self._set_data('spatiocyte_species_id', species_id)
+                self._set_data('spatiocyte_index',  species_index)
+		#self._set_data('spatiocyte_diffusion',  map(lambda x : x[3], species))
+		self._set_data('spatiocyte_radius', species_radius)
 
                 # get lattice properties
                 #self._set_data('spatiocyte_lattice_id', map(lambda x : x[0], lattice))
@@ -127,18 +151,25 @@ class KinesinConfigs(EPIFMConfigs) :
                 #self._set_data('spatiocyte_theLayerSize',  lattice[0][5])
                 #self._set_data('spatiocyte_theColSize',    lattice[0][7])
 
-
             except Exception, e :
                         if not self.ignore_open_errors:
                             raise
                         print 'Ignoring error: ', e
 
 
+        # set observable
+        if observable is None :
+            index = [True for i in range(len(self.spatiocyte_index))]
+            
+        else :          
+            index = map(lambda x :  True if x.find(observable) > -1 else False, self.spatiocyte_index)
+                        
+        self.spatiocyte_observables = copy.copy(index)
 
 
 
 
-class KinesinVisualizer(EPIFMVisualizer) :
+class KinesinVisualizer(ConfocalVisualizer) :
 
 	'''
 	Kinesin visualization class
@@ -154,9 +185,9 @@ class KinesinVisualizer(EPIFMVisualizer) :
 		"""
 		if not os.path.exists(self.configs.movie_image_file_dir):
 		    os.makedirs(self.configs.movie_image_file_dir)
-		else:
-		    for file in os.listdir(self.configs.movie_image_file_dir):
-			os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+		#else:
+		#    for file in os.listdir(self.configs.movie_image_file_dir):
+		#	os.remove(os.path.join(self.configs.movie_image_file_dir, file))
 
                 """
                 Image Size and Boundary
@@ -182,6 +213,6 @@ class KinesinVisualizer(EPIFMVisualizer) :
                 point_z = aCoord[2]
                 point_x = aCoord[0]
 
-                return point_x, point_y, point_z
-                #return point_y, point_x, point_z
+                #return point_x, point_y, point_z
+                return point_y, point_x, point_z
 

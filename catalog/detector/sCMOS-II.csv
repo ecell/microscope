@@ -3,11 +3,14 @@ Maker,"Hamamatsu"
 ProductName,"Gen II Scientific CMOS Camera"
 Comment,""
 Public,1
-image_size,2048
+image_size,600
 pixel_length,6.5e-6
 sat_charge,30000
-readout,1.30
-dark_current,0.00
+max_charge,50000
+ADC_bit,16
+ADC_offset,2000
+readout,1.3
+dark_current,0.02
 excess,1.00
 QE
 200, 0.0193932801164

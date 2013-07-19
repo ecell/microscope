@@ -951,9 +951,9 @@ class EPIFMVisualizer() :
 		"""
 		if not os.path.exists(self.configs.movie_image_file_dir):
 		    os.makedirs(self.configs.movie_image_file_dir)
-		else:
-		    for file in os.listdir(self.configs.movie_image_file_dir):
-			os.remove(os.path.join(self.configs.movie_image_file_dir, file))
+		#else:
+		#    for file in os.listdir(self.configs.movie_image_file_dir):
+		#	os.remove(os.path.join(self.configs.movie_image_file_dir, file))
 
                 """
                 set Image Size and Boundary
@@ -1010,8 +1010,7 @@ class EPIFMVisualizer() :
 	        point_z = aGlobalRow*2*norm_voxel_radius + ((aGlobalLayer+aGlobalCol)%2)*norm_voxel_radius
 	        point_x = aGlobalCol*theHCPh
 
-		#return point_x, point_y, point_z
-		return point_y, point_x, point_z
+		return point_x, point_y, point_z
 
 
 
@@ -1344,18 +1343,18 @@ class EPIFMVisualizer() :
 			data   = frame_data[i][1]
 			total  = len(data)
 
-			Norm = numpy.exp(-(i_time - time)/exposure_time)
+			Norm = 1.0#numpy.exp(-(i_time - time)/exposure_time)
 
 			# loop for particles
 			for j in range(total) :
 
 			    c_id, s_id, l_id = data[j]
 
-                            # particles coordinate in real(nm) scale
+			    # particles coordinate in real(nm) scale
                             pos = self.get_coordinate(c_id)
                             p_i = numpy.array(pos)*voxel_size
 
-			    #print j, data[j]
+                            #print j, p_i
                             # get signal matrix
                             signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
 
@@ -1434,8 +1433,8 @@ class EPIFMVisualizer() :
 		# convert image in nm-scale to pixel-scale
                 cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
 
-		for i in range(Nw_cell/Np) :
-		    for j in range(Nh_cell/Np) :
+		for i in range(Nh_cell/Np) :
+		    for j in range(Nw_cell/Np) :
 
 			# get signal
 			signal = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
@@ -1490,12 +1489,6 @@ class EPIFMVisualizer() :
 		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
 		return camera_pixel
-
-                # save image to file
-                #max_bit = 2**self.configs.detector_ADC_bit
-
-                #toimage(camera_pixel, cmin=0, cmax=max_bit).save(self.image_file_name)
-                #toimage(camera_pixel, cmin=0, cmax=numpy.amax(camera_pixel)).save(self.image_file_name)
 
 		#z = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
 		#y = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
