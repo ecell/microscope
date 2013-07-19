@@ -1560,8 +1560,7 @@ class EPIFMVisualizer():
         #self.effects.set_states(t0, length0)
 
         # set number of processors
-        max_runs = 100
-        #max_runs = multiprocessing.cpu_count()
+        max_runs = multiprocessing.cpu_count()
 
         while (time < end):
 
