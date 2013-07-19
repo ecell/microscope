@@ -3,7 +3,7 @@ Maker,"Hamamatsu"
 ProductName,"ImgEM-CCD Camera"
 Comment,""
 Public,1
-image_size,256
+image_size,512
 pixel_length,16e-6
 sat_charge,370000
 readout,8.0
