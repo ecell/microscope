@@ -32,9 +32,9 @@ def test_tirfm(t0, t1):
         detector='EMCCD', zoom=1, emgain=900, focal_point=(0.0, 0.5, 0.5),
         start_time=t0, end_time=t1, fps=1.0/3.3e-3, exposure_time=33e-3)
     tirfm.set_Movie(
-        image_file_dir='./images_tirfm_test_model_08_x900',
+        image_file_dir='./images',
         movie_filename='./movies/tirfm_movie.mp4')
-    tirfm.set_DataFile(['./data/lattice/test_model_08.h5'])
+    tirfm.set_DataFile(['./data/lattice/test_model_10.h5'])
 
     # create physical effects
     physics = PhysicalEffects()
