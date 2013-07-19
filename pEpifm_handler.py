@@ -1511,9 +1511,6 @@ class EPIFMVisualizer():
                     self.overwrite_signal(cell, signal, p_i)
                     #cell = self.overwrite_signal(cell, signal, p_i)
 
-
-
-
         def output_frames(self, num_div=1):
 
                 # define observational image plane in nm-scale
@@ -1540,23 +1537,22 @@ class EPIFMVisualizer():
                     bc = self.set_boundary_plane(bc, p_b, p_0)
 
                 # frame interval
-                frame_interval = 1.0/self.configs.detector_fps
                 #frame_interval = self.configs.detector_frame_interval
-                exposure_time  = self.configs.detector_exposure_time
+                exposure_time = self.configs.detector_exposure_time
 
                 time = self.configs.detector_start_time
-                end  = self.configs.detector_end_time
+                end = self.configs.detector_end_time
 
                 # data-time interval
                 t0 = self.configs.spatiocyte_data[0][0]
                 t1 = self.configs.spatiocyte_data[1][0]
 
-                delta_data  = t1 - t0
+                delta_data = t1 - t0
                 delta_time = int(round(exposure_time/delta_data))
                 #delta_time = int(round(exposure_time/frame_interval))
 
                 # create frame data composed by frame element data
-                count  = int(round(time/exposure_time))
+                count = int(round(time/exposure_time))
                 count0 = count
 
                 # initialize Physical effects
@@ -1570,8 +1566,9 @@ class EPIFMVisualizer():
                 while (time < end):
 
                     # set image file name
-                    self.image_file_name = os.path.join(self.configs.movie_image_file_dir, \
-                                                self.configs.movie_image_file_name_format % (count))
+                    self.image_file_name = os.path.join(
+                        self.configs.movie_image_file_dir,
+                        self.configs.movie_image_file_name_format % (count))
 
                     print 'time : ', time, ' sec (', count, ')'
 
@@ -1582,7 +1579,7 @@ class EPIFMVisualizer():
                     cell = np_arr.reshape((Nz, Ny))
 
                     count_start = (count - count0)*delta_time
-                    count_end   = (count - count0 + 1)*delta_time
+                    count_end = (count - count0 + 1)*delta_time
 
                     frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
@@ -1591,8 +1588,8 @@ class EPIFMVisualizer():
 
                         # i-th data in a frame
                         i_time = frame_data[i][0]
-                        data   = frame_data[i][1]
-                        total  = len(data)
+                        data = frame_data[i][1]
+                        total = len(data)
 
                         print '\t', '%02d-th frame : ' % (i), i_time, ' sec'
 
@@ -1600,7 +1597,9 @@ class EPIFMVisualizer():
                         jobs = []
 
                         for j in range(total):
-                            proc = multiprocessing.Process(target=self.get_molecule_plane, args=(cell, i_time-time, data[j], j, p_0, p_b))
+                            proc = multiprocessing.Process(
+                                target=self.get_molecule_plane,
+                                args=(cell, i_time-time, data[j], j, p_0, p_b))
                             jobs.append(proc)
 
                         run = 0
@@ -1620,12 +1619,12 @@ class EPIFMVisualizer():
 
                             run += max_runs
 
-
                     if (numpy.amax(cell) > 0):
 
                         if (self.configs.spatiocyte_bc_switch == True):
                             camera = self.detector_output(cell, bc)
-                        else: camera = self.detector_output(cell)
+                        else:
+                            camera = self.detector_output(cell)
 
                         camera = self.detector_output(cell)
                         camera.astype('uint%d' % (self.configs.detector_ADC_bit))
@@ -1634,8 +1633,7 @@ class EPIFMVisualizer():
                         # save image to file
                         toimage(camera, low=numpy.amin(camera), high=numpy.amax(camera), mode='I').save(self.image_file_name)
 
-
-                    time  += exposure_time
+                    time += exposure_time
                     count += 1
 
 
