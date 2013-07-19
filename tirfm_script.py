@@ -8,7 +8,7 @@ import sys
 from tirfm_handler   import TIRFMConfigs, TIRFMVisualizer
 from effects_handler import PhysicalEffects
 
-def test_tirfm(t0, t1) :
+def test_tirfm(t0, t1):
 
     # create TIRF Microscopy
     tirfm = TIRFMConfigs()

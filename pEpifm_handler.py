@@ -48,7 +48,7 @@ class VisualizerError(Exception):
 
 
 
-class EPIFMConfigs() :
+class EPIFMConfigs():
 
     '''
     EPIFM Visualization setting class
@@ -85,14 +85,14 @@ class EPIFMConfigs() :
                 setattr(self, key, copy_val)
 
 
-    def _set_data(self, key, val) :
+    def _set_data(self, key, val):
 
         if val != None:
             setattr(self, key, val)
 
 
 
-    def set_Particles(self, p_list = None) :
+    def set_Particles(self, p_list = None):
 
         print '--- Particles List :'
 
@@ -108,7 +108,7 @@ class EPIFMConfigs() :
                                 M2_factor = None,
                                 wave_length = None,
                                 power = None,
-                                radius = None ) :
+                                radius = None ):
 
         self._set_data('source_switch', True)
         self._set_data('source_type', source_type)
@@ -131,7 +131,7 @@ class EPIFMConfigs() :
     def set_BeamExpander(self, expander_type = None,
                                 pinhole_radius = None,
                                 focal_length1 = None,
-                                focal_length2 = None) :
+                                focal_length2 = None):
 
         self._set_data('expander_type', expander_type)
         self._set_data('expander_pinhole_radius', pinhole_radius)
@@ -146,7 +146,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_ExcitationFilter(self, excitation = None) :
+    def set_ExcitationFilter(self, excitation = None):
 
         print '--- Excitation Filter :'
 
@@ -162,13 +162,13 @@ class EPIFMConfigs() :
             excitation_header = []
             excitation_filter = []
 
-            for i in range(len(header)) :
+            for i in range(len(header)):
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 excitation_header.append(a_data)
                 print '\t', a_data
 
-            for i in range(len(data)) :
+            for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
                 a_data = dummy0[0].split(',')
                 excitation_filter.append(a_data)
@@ -188,9 +188,9 @@ class EPIFMConfigs() :
                                 wave_length = None,
                                 width = None,
                                 cutoff = None,
-                                file_name_format = None ) :
+                                file_name_format = None ):
 
-        if (fluorophore_type == 'Gaussian') :
+        if (fluorophore_type == 'Gaussian'):
 
             print '--- Fluorophore : Point Spreading Function [%s]' % (fluorophore_type)
 
@@ -213,7 +213,7 @@ class EPIFMConfigs() :
 
 
 
-        elif (fluorophore_type == 'Point-like') :
+        elif (fluorophore_type == 'Point-like'):
 
             print '--- Fluorophore : Point Spreading Function [%s]' % (fluorophore_type)
 
@@ -231,7 +231,7 @@ class EPIFMConfigs() :
 
 
 
-        else :
+        else:
 
             print '--- Fluorophore :'
 
@@ -248,22 +248,22 @@ class EPIFMConfigs() :
                 fluorophore_excitation = []
                 fluorophore_emission = []
 
-                for i in range(len(header)) :
+                for i in range(len(header)):
                     dummy  = header[i].split('\r\n')
                     a_data = dummy[0].split(',')
                     fluorophore_header.append(a_data)
                     print '\t', a_data
 
-                for i in range(len(data)) :
+                for i in range(len(data)):
                     dummy0 = data[i].split('\r\n')
                     a_data = dummy0[0].split(',')
 
-                    if   (len(a_data) == 1 and a_data[0] == 'Excitation') : flag = 0
-                    elif (len(a_data) == 1 and a_data[0] == 'Emission'  ) : flag = 1
-                    else :
-                        if (flag == 0) :
+                    if   (len(a_data) == 1 and a_data[0] == 'Excitation'): flag = 0
+                    elif (len(a_data) == 1 and a_data[0] == 'Emission'  ): flag = 1
+                    else:
+                        if (flag == 0):
                             fluorophore_excitation.append(a_data)
-                        else :
+                        else:
                             fluorophore_emission.append(a_data)
 
 
@@ -306,7 +306,7 @@ class EPIFMConfigs() :
                         focal_length = None,
                         efficiency = None,
                         thickness  = None
-                        ) :
+                        ):
 
         print '--- Objective :'
 
@@ -329,14 +329,14 @@ class EPIFMConfigs() :
 
 
 
-    def _set_angle(self) :
+    def _set_angle(self):
 
         self.objective_sin_max = self.objective_NA/self.objective_Ng
         self.objective_sin_critical = self.objective_Nm/self.objective_Ng
 
 
 
-    def set_DichroicMirror(self, dm = None) :
+    def set_DichroicMirror(self, dm = None):
 
         print '--- Dichroic Mirror :'
 
@@ -352,13 +352,13 @@ class EPIFMConfigs() :
             dichroic_header = []
             dichroic_mirror = []
 
-            for i in range(len(header)) :
+            for i in range(len(header)):
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 dichroic_header.append(a_data)
                 print '\t', a_data
 
-            for i in range(len(data)) :
+            for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
                 a_data = dummy0[0].split(',')
                 dichroic_mirror.append(a_data)
@@ -374,7 +374,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_EmissionFilter(self, emission = None) :
+    def set_EmissionFilter(self, emission = None):
 
         print '--- Emission Filter :'
 
@@ -390,13 +390,13 @@ class EPIFMConfigs() :
             emission_header = []
             emission_filter = []
 
-            for i in range(len(header)) :
+            for i in range(len(header)):
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 emission_header.append(a_data)
                 print '\t', a_data
 
-            for i in range(len(data)) :
+            for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
                 a_data = dummy0[0].split(',')
                 emission_filter.append(a_data)
@@ -410,7 +410,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_ScanLens(self, focal_length = None) :
+    def set_ScanLens(self, focal_length = None):
 
         print '--- Scan Lens :'
 
@@ -421,7 +421,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_TubeLens1(self, focal_length = None) :
+    def set_TubeLens1(self, focal_length = None):
 
         print '--- Tube Lens :'
 
@@ -432,7 +432,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_TubeLens2(self, focal_length = None) :
+    def set_TubeLens2(self, focal_length = None):
 
         print '--- Tube Lens :'
 
@@ -479,7 +479,7 @@ class EPIFMConfigs() :
             detector_header = []
             detector_QEdata = []
 
-            for i in range(len(header)) :
+            for i in range(len(header)):
                 dummy  = header[i].split('\r\n')
                 a_data = dummy[0].split(',')
                 detector_header.append(a_data)
@@ -495,7 +495,7 @@ class EPIFMConfigs() :
             dark_current = float(detector_header[12][1])
             excess         = float(detector_header[13][1])
 
-            for i in range(len(data)) :
+            for i in range(len(data)):
                 dummy0 = data[i].split('\r\n')
                 a_data = dummy0[0].split(',')
                 detector_QEdata.append(a_data)
@@ -561,7 +561,7 @@ class EPIFMConfigs() :
 
     def set_Movie(self, image_file_dir = None,
                         movie_filename='./movies/movie.mp4', \
-                        cleanup_image_file_dir=False) :
+                        cleanup_image_file_dir=False):
 
         if image_file_dir is None:
             image_file_dir = tempfile.mkdtemp(dir=os.getcwd())
@@ -573,7 +573,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_Output(self, output_file_dir = None) :
+    def set_Output(self, output_file_dir = None):
 
         if output_file_dir is None:
             output_file_dir = tempfile.mkdtemp(dir=os.getcwd())
@@ -582,12 +582,12 @@ class EPIFMConfigs() :
 
 
 
-    def set_DataFile(self, hdf5_file_path_list, observable=None) :
+    def set_DataFile(self, hdf5_file_path_list, observable=None):
 
         # read hdf5 lattice file
-        for hdf5_file_path in hdf5_file_path_list :
+        for hdf5_file_path in hdf5_file_path_list:
 
-            try :
+            try:
 
                 hdf5_file = h5py.File(hdf5_file_path, 'r')
 
@@ -601,16 +601,16 @@ class EPIFMConfigs() :
                 start = self.detector_start_time
                 end   = self.detector_end_time
 
-                for i in dataset :
+                for i in dataset:
 
                     data_i = dataset[i]
                     time = data_i.attrs['t']
 
-                    if (time >= start and time < end) :
+                    if (time >= start and time < end):
 
                         particles = []
 
-                        for j in hdf5_file['data/'+str(i)+'/particles'] :
+                        for j in hdf5_file['data/'+str(i)+'/particles']:
                             particles.append(j)
 
                         element = [time, particles]
@@ -622,14 +622,14 @@ class EPIFMConfigs() :
                 self._set_data('spatiocyte_data', data)
 
                 # get species properties
-                self._set_data('spatiocyte_species_id', copy.copy(map(lambda x : x[0], species)))
-                self._set_data('spatiocyte_index',      copy.copy(map(lambda x : x[1], species)))
-                self._set_data('spatiocyte_diffusion',  copy.copy(map(lambda x : x[3], species)))
-                self._set_data('spatiocyte_radius',     copy.copy(map(lambda x : x[2], species)))
+                self._set_data('spatiocyte_species_id', copy.copy(map(lambda x: x[0], species)))
+                self._set_data('spatiocyte_index',      copy.copy(map(lambda x: x[1], species)))
+                self._set_data('spatiocyte_diffusion',  copy.copy(map(lambda x: x[3], species)))
+                self._set_data('spatiocyte_radius',     copy.copy(map(lambda x: x[2], species)))
 
                 # get lattice properties
-                self._set_data('spatiocyte_lattice_id', copy.copy(map(lambda x : x[0], lattice)))
-                self._set_data('spatiocyte_lengths',    copy.copy(map(lambda x : x[1], lattice)))
+                self._set_data('spatiocyte_lattice_id', copy.copy(map(lambda x: x[0], lattice)))
+                self._set_data('spatiocyte_lengths',    copy.copy(map(lambda x: x[1], lattice)))
                 self._set_data('spatiocyte_VoxelRadius',   copy.copy(lattice[0][2]))
                 self._set_data('spatiocyte_theNormalizedVoxelRadius', copy.copy(lattice[0][3]))
                 self._set_data('spatiocyte_theStartCoord', copy.copy(lattice[0][4]))
@@ -640,17 +640,17 @@ class EPIFMConfigs() :
                 hdf5_file.close()
 
 
-            except Exception, e :
+            except Exception, e:
                         if not self.ignore_open_errors:
                             raise
                         print 'Ignoring error: ', e
 
         # set observable
-        if observable is None :
+        if observable is None:
             index = [True for i in range(len(self.spatiocyte_index))]
 
-        else :
-            index = map(lambda x :  True if x.find(observable) > -1 else False, self.spatiocyte_index)
+        else:
+            index = map(lambda x:  True if x.find(observable) > -1 else False, self.spatiocyte_index)
 
         self.spatiocyte_observables = copy.copy(index)
 
@@ -663,25 +663,25 @@ class EPIFMConfigs() :
             raise VisualizerError('Cannot find particles dataset in any given hdf5 files: ' \
                             + ', '.join(hdf5_file_path_list))
 
-        if len(self.spatiocyte_index) == 0 :
+        if len(self.spatiocyte_index) == 0:
             raise VisualizerError('Cannot find lattice dataset in any given hdf5 files: ' \
                             + ', '.join(hdf5_file_path_list))
 
 
 
 
-    def set_BCFile(self, bc_file_path_list=None) :
+    def set_BCFile(self, bc_file_path_list=None):
 
         # read CSV Boundary condition file
-        for bc_file_path in bc_file_path_list :
+        for bc_file_path in bc_file_path_list:
 
-            try :
+            try:
 
                 csv_file = open(bc_file_path, 'r')
 
                 dataset = []
 
-                for row in csv.reader(csv_file) :
+                for row in csv.reader(csv_file):
                     dataset.append(row)
 
                 ### header
@@ -690,7 +690,7 @@ class EPIFMConfigs() :
                 ### data for boundary condition
                 bc_data = []
 
-                for j in range(1, len(dataset[1]), 3) :
+                for j in range(1, len(dataset[1]), 3):
 
                     c_id = [float(dataset[1][j]), float(dataset[1][j+1]), float(dataset[1][j+2])]
                     bc_data.append(c_id)
@@ -702,7 +702,7 @@ class EPIFMConfigs() :
                 self._set_data('spatiocyte_bc', bc_data)
 
 
-            except Exception, e :
+            except Exception, e:
                         if not self.ignore_open_errors:
                             raise
                         print 'Ignoring error: ', e
@@ -710,23 +710,23 @@ class EPIFMConfigs() :
 
 
 
-    def set_efficiency(self, array, index=1) :
+    def set_efficiency(self, array, index=1):
 
-        if (len(array[0]) < 3) : index = 1
+        if (len(array[0]) < 3): index = 1
 
         N = len(self.wave_length)
         #efficiency = numpy.array([0.0 for i in range(N)])
         efficiency = [0.0 for i in range(N)]
 
-        for i in range(N) :
+        for i in range(N):
             wl = self.wave_length[i]
 
-            for j in range(len(array)) :
+            for j in range(len(array)):
 
                 length = float(array[j][0])
                 eff = float(array[j][index])
 
-                if (length/wl == 1) :
+                if (length/wl == 1):
                     efficiency[i] = eff
 
 
@@ -734,7 +734,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_Optical_path(self) :
+    def set_Optical_path(self):
 
         # (1) Illumination path : Light source --> Sample
         self.set_Illumination_path()
@@ -744,7 +744,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_Illumination_path(self) :
+    def set_Illumination_path(self):
 
         r = self.radial
         z = self.depth
@@ -795,10 +795,10 @@ class EPIFMConfigs() :
         w_z = w_obj*numpy.sqrt(1 + ((wave_length*z*1e-9)/(numpy.pi*w_obj**2))**2)
         N_z = N_0*(1 - numpy.exp(-2*(w_p/w_z)**2))
 
-        self.source_flux = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(r*1e-9/y)**2), N_z, w_z))
+        self.source_flux = numpy.array(map(lambda x, y: (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(r*1e-9/y)**2), N_z, w_z))
 
 
-    def set_Detection_path(self) :
+    def set_Detection_path(self):
 
         wave_length = self.psf_wavelength*1e-9
 
@@ -842,7 +842,7 @@ class EPIFMConfigs() :
 
 
 
-    def set_PSF_detector(self) :
+    def set_PSF_detector(self):
 
         r = self.radial
         z = self.depth
@@ -853,30 +853,30 @@ class EPIFMConfigs() :
         I = self.fluoem_norm
 
         # Photon Transmission Efficiency
-        if (self.dichroic_switch == True) :
+        if (self.dichroic_switch == True):
             I = I*0.01*self.dichroic_eff
 
-        if (self.emission_switch == True) :
+        if (self.emission_switch == True):
             I = I*0.01*self.emission_eff
 
         # For normalization
-        norm = map(lambda x : True if x > 1e-4 else False, I)
+        norm = map(lambda x: True if x > 1e-4 else False, I)
 
 
         # PSF : Fluorophore
         psf_fl = None
 
         if (self.fluorophore_type == 'Gaussian' or
-            self.fluorophore_type == 'Point-like' ) :
+            self.fluorophore_type == 'Point-like' ):
 
             I0 = 1.0
-            Ir = sum(map(lambda x : x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm))
-            Iz = sum(map(lambda x : x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm))
+            Ir = sum(map(lambda x: x*numpy.exp(-0.5*(r/self.psf_width[0])**2), norm))
+            Iz = sum(map(lambda x: x*numpy.exp(-0.5*(z/self.psf_width[1])**2), norm))
 
-            psf_fl = numpy.array(map(lambda x : I0*Ir*x, Iz))
+            psf_fl = numpy.array(map(lambda x: I0*Ir*x, Iz))
 
 
-        else :
+        else:
 
             # make the norm and wave_length array shorter
 #            psf_fl = 0
@@ -893,7 +893,7 @@ class EPIFMConfigs() :
         self.fluorophore_psf = psf_fl
 
 
-    def get_PSF_fluorophore(self, r, z, wave_length) :
+    def get_PSF_fluorophore(self, r, z, wave_length):
 
         # set Numerical Appature
         NA = self.objective_NA
@@ -908,15 +908,15 @@ class EPIFMConfigs() :
         drho = 1.0/N
         rho = numpy.array([(i+1)*drho for i in range(N)])
 
-        J0 = numpy.array(map(lambda x : j0(x*alpha*rho), r))
-        Y  = numpy.array(map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
+        J0 = numpy.array(map(lambda x: j0(x*alpha*rho), r))
+        Y  = numpy.array(map(lambda x: 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
 #        J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
 #        Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
 
-        I  = numpy.array(map(lambda x : x*J0, Y))
+        I  = numpy.array(map(lambda x: x*J0, Y))
         I_sum = I.sum(axis=2)
 
-        psf = numpy.array(map(lambda x : abs(x)**2, I_sum))
+        psf = numpy.array(map(lambda x: abs(x)**2, I_sum))
         Norm = numpy.amax(psf)
 
 #        for i in range(len(wave_length)) :
@@ -964,13 +964,13 @@ class EPIFMConfigs() :
 
 
 
-class EPIFMVisualizer() :
+class EPIFMVisualizer():
 
         '''
         EPIFM Visualization class of e-cell simulator
         '''
 
-        def __init__(self, configs=EPIFMConfigs(), effects=PhysicalEffects()) :
+        def __init__(self, configs=EPIFMConfigs(), effects=PhysicalEffects()):
 
                 assert isinstance(configs, EPIFMConfigs)
                 self.configs = configs
@@ -996,7 +996,7 @@ class EPIFMVisualizer() :
                 self.img_width  = int(self.configs.detector_image_size[0])
                 self.img_height = int(self.configs.detector_image_size[1])
 
-                if self.img_width > IMAGE_SIZE_LIMIT or self.img_height > IMAGE_SIZE_LIMIT :
+                if self.img_width > IMAGE_SIZE_LIMIT or self.img_height > IMAGE_SIZE_LIMIT:
                         raise VisualizerErrror('Image size is bigger than the limit size')
 
                 """
@@ -1018,7 +1018,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_coordinate(self, aCoord) :
+        def get_coordinate(self, aCoord):
 
                 """
                 get (column, layer, row) coordinate
@@ -1049,7 +1049,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_position(self, pos) :
+        def get_position(self, pos):
 
                 # normal vector
                 norm  = map(operator.sub, self.configs.detector_base_position, self.configs.detector_focal_point)
@@ -1083,7 +1083,7 @@ class EPIFMVisualizer() :
 
 
 
-        def polar2cartesian(self, r, t, grid, x, y) :
+        def polar2cartesian(self, r, t, grid, x, y):
 
                 X, Y = numpy.meshgrid(x, y)
 
@@ -1108,7 +1108,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_depth_of_focus(self, p_i, p_0) :
+        def get_depth_of_focus(self, p_i, p_0):
 
                 # get focal point
                 x_0, y_0, z_0 = p_0
@@ -1134,16 +1134,16 @@ class EPIFMVisualizer() :
                 # get particle depth from focal plane
                 depth  = abs(x_i - x_0)
 
-                if (depth < dof) :
+                if (depth < dof):
                     depth = 0
-                else :
+                else:
                     depth = depth - dof
 
                 return depth
 
 
 
-        def get_intensity(self, time, pid, source_psf, source_max) :
+        def get_intensity(self, time, pid, source_psf, source_max):
 
                 delta = self.configs.detector_exposure_time
 
@@ -1152,7 +1152,7 @@ class EPIFMVisualizer() :
                 intensity = Ratio*source_psf
 
                 # Photobleaching process : Exponential decay
-                if (self.effects.bleaching_switch == True) :
+                if (self.effects.bleaching_switch == True):
 
                     zeta  = self.effects.bleaching_rate
                     state = source_psf/source_max
@@ -1165,7 +1165,7 @@ class EPIFMVisualizer() :
 
 
                 # Slow-Blinking process : Power-law probability distribution
-                if (self.effects.blinking_switch == True) :
+                if (self.effects.blinking_switch == True):
 
                     state  = self.effects.blinking_state[pid]
                     period = self.effects.blinking_period[pid]
@@ -1174,11 +1174,11 @@ class EPIFMVisualizer() :
                     value = scipy.random.uniform(0, 1)
                     prob = self.effects.get_Prob_blinking(state, period)
 
-                    if (value > prob) :
+                    if (value > prob):
                         self.effects.blinking_state[pid]  = int(bool(self.effects.blinking_state[pid]-1))
                         self.effects.blinking_period[pid] = 0
 
-                    else :
+                    else:
                         self.effects.blinking_period[pid] += delta
 
                     #print pid, value, prob, self.effects.blinking_state[pid], self.effects.blinking_period[pid]
@@ -1190,7 +1190,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_signal(self, time, pid, s_index, p_i, p_b, p_0) :
+        def get_signal(self, time, pid, s_index, p_i, p_b, p_0):
 
                 # set focal point
                 x_0, y_0, z_0 = p_0
@@ -1208,17 +1208,17 @@ class EPIFMVisualizer() :
                 # beam axial position
                 d_s = abs(x_i - x_b)
 
-                if (d_s < len(d)) :
+                if (d_s < len(d)):
                     source_depth = d_s
-                else :
+                else:
                     source_depth = d[-1]
 
                 # beam lateral position
                 rr = numpy.sqrt((y_i-y_0)**2 + (z_i-z_0)**2)
 
-                if (rr < len(r)) :
+                if (rr < len(r)):
                     source_radius = rr
-                else :
+                else:
                     source_radius = r[-1]
 
                 # normalization
@@ -1246,14 +1246,14 @@ class EPIFMVisualizer() :
                 Intensity = Ratio * source_psf
 
                 # fluorophore axial position
-                if (self.effects.depth_of_focus_switch == True) :
+                if (self.effects.depth_of_focus_switch == True):
                     d_f = self.get_depth_of_focus(p_i, p_0)
-                else :
+                else:
                     d_f = abs(x_i - x_0)
 
-                if (d_f < len(d)) :
+                if (d_f < len(d)):
                     fluo_depth = d_f
-                else :
+                else:
                     fluo_depth = d[-1]
 
                 # coordinate transformation : polar --> cartisian
@@ -1262,11 +1262,11 @@ class EPIFMVisualizer() :
                 z = numpy.linspace(0, +r[-1], len(r))
                 y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
 
-                psf_t = numpy.array(map(lambda x : 1.00, theta))
+                psf_t = numpy.array(map(lambda x: 1.00, theta))
                 psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
 
                 #psf_smear = numpy.array(map(lambda x : psf_r[0]*numpy.exp(-(x/width)**2), r))
-                psf_polar = numpy.array(map(lambda x : psf_t*x, psf_r))
+                psf_polar = numpy.array(map(lambda x: psf_t*x, psf_r))
 
                 # get fluorophore PSF
                 fluo_psf  = numpy.array(self.polar2cartesian(r, theta, psf_polar, z, y))
@@ -1279,7 +1279,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_noise(self, signal) :
+        def get_noise(self, signal):
 
                 # detector noise
                 Nr = self.configs.detector_readout
@@ -1296,7 +1296,7 @@ class EPIFMVisualizer() :
 
 
 
-        def set_boundary_plane(self, cell, p_b, p_0) :
+        def set_boundary_plane(self, cell, p_b, p_0):
 
                 voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
@@ -1310,7 +1310,7 @@ class EPIFMVisualizer() :
                 data = self.configs.spatiocyte_bc
 
 
-                for i in range(len(data)) :
+                for i in range(len(data)):
 
                     # particles relative coordinate
                     p_i = numpy.array(data[i])*voxel_size
@@ -1340,28 +1340,28 @@ class EPIFMVisualizer() :
                 Nw_cell = len(cell)
                 Nh_cell = len(cell[0])
 
-                if (Nw_camera > Nw_cell) :
+                if (Nw_camera > Nw_cell):
 
                         w_cam_from = int((Nw_camera - Nw_cell)/2.0)
                         w_cam_to   = w_cam_from + Nw_cell
                         w_cel_from = 0
                         w_cel_to   = Nw_cell
 
-                else :
+                else:
 
                         w_cam_from = 0
                         w_cam_to   = Nw_camera
                         w_cel_from = int((Nw_cell - Nw_camera)/2.0)
                         w_cel_to   = w_cel_from + Nw_camera
 
-                if (Nh_camera > Nh_cell) :
+                if (Nh_camera > Nh_cell):
 
                         h_cam_from = int((Nh_camera - Nh_cell)/2.0)
                         h_cam_to   = h_cam_from + Nh_cell
                         h_cel_from = 0
                         h_cel_to   = Nh_cell
 
-                else :
+                else:
 
                         h_cam_from = 0
                         h_cam_to   = int(Nh_camera)
@@ -1375,15 +1375,15 @@ class EPIFMVisualizer() :
                 # convert image in nm-scale to pixel-scale
                 cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
 
-                for i in range(Nw_cell/Np) :
-                    for j in range(Nh_cell/Np) :
+                for i in range(Nw_cell/Np):
+                    for j in range(Nh_cell/Np):
 
                         # get signal
                         signal = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
 
-                        if (signal > 0) :
+                        if (signal > 0):
                             cell_pixel[i][j] = True
-                        else :
+                        else:
                             cell_pixel[i][j] = False
 
 
@@ -1391,7 +1391,7 @@ class EPIFMVisualizer() :
 
 
 
-        def overwrite_signal(self, cell, signal, p_i) :
+        def overwrite_signal(self, cell, signal, p_i):
 
                 # particle position
                 x_i, y_i, z_i = p_i
@@ -1404,28 +1404,28 @@ class EPIFMVisualizer() :
                 z_to   = z_i + Nr
                 z_from = z_i - Nr
 
-                if (z_to > Nz_cell) :
+                if (z_to > Nz_cell):
 
                     dz_to = z_to - Nz_cell
 
                     z0_to = int(Nz_cell)
                     zi_to = int(Nz_signal - dz_to)
 
-                else :
+                else:
 
                     dz_to = Nz_cell - (z_i + Nr)
 
                     z0_to = int(Nz_cell - dz_to)
                     zi_to = int(Nz_signal)
 
-                if (z_from < 0) :
+                if (z_from < 0):
 
                     dz_from = abs(z_from)
 
                     z0_from = 0
                     zi_from = int(dz_from)
 
-                else :
+                else:
 
                     dz_from = z_from
 
@@ -1434,8 +1434,8 @@ class EPIFMVisualizer() :
 
                 ddz = (z0_to - z0_from) - (zi_to - zi_from)
 
-                if (ddz > 0) : z0_to = z0_to - ddz
-                if (ddz < 0) : zi_to = zi_to - ddz
+                if (ddz > 0): z0_to = z0_to - ddz
+                if (ddz < 0): zi_to = zi_to - ddz
 
                 # y-axis
                 Ny_cell  = cell.size/Nz_cell
@@ -1444,28 +1444,28 @@ class EPIFMVisualizer() :
                 y_to   = y_i + Nr
                 y_from = y_i - Nr
 
-                if (y_to > Ny_cell) :
+                if (y_to > Ny_cell):
 
                     dy_to = y_to - Ny_cell
 
                     y0_to = int(Ny_cell)
                     yi_to = int(Ny_signal - dy_to)
 
-                else :
+                else:
 
                     dy_to = Ny_cell - (y_i + Nr)
 
                     y0_to = int(Ny_cell - dy_to)
                     yi_to = int(Ny_signal)
 
-                if (y_from < 0) :
+                if (y_from < 0):
 
                     dy_from = abs(y_from)
 
                     y0_from = 0
                     yi_from = int(dy_from)
 
-                else :
+                else:
 
                     dy_from = y_from
 
@@ -1474,8 +1474,8 @@ class EPIFMVisualizer() :
 
                 ddy = (y0_to - y0_from) - (yi_to - yi_from)
 
-                if (ddy > 0) : y0_to = y0_to - ddy
-                if (ddy < 0) : yi_to = yi_to - ddy
+                if (ddy > 0): y0_to = y0_to - ddy
+                if (ddy < 0): yi_to = yi_to - ddy
 
                 # add to cellular plane
                 cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
@@ -1484,7 +1484,7 @@ class EPIFMVisualizer() :
 
 
 
-        def get_molecule_plane(self, cell, time, data, pid, p_b, p_0) :
+        def get_molecule_plane(self, cell, time, data, pid, p_b, p_0):
 
                 voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
@@ -1494,7 +1494,7 @@ class EPIFMVisualizer() :
                 sid_array = numpy.array(self.configs.spatiocyte_species_id)
                 s_index = (numpy.abs(sid_array - int(s_id))).argmin()
 
-                if self.configs.spatiocyte_observables[s_index] is True :
+                if self.configs.spatiocyte_observables[s_index] is True:
 
                     # particles coordinate in real(nm) scale
                     pos = self.get_coordinate(c_id)
@@ -1514,7 +1514,7 @@ class EPIFMVisualizer() :
 
 
 
-        def output_frames(self, num_div=1) :
+        def output_frames(self, num_div=1):
 
                 # define observational image plane in nm-scale
                 voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
@@ -1534,7 +1534,7 @@ class EPIFMVisualizer() :
                 p_b = copy.copy(p_0)
 
                 # set boundary condition
-                if (self.configs.spatiocyte_bc_switch == True) :
+                if (self.configs.spatiocyte_bc_switch == True):
 
                     bc = numpy.zeros(shape=(Nz, Ny))
                     bc = self.set_boundary_plane(bc, p_b, p_0)
@@ -1567,7 +1567,7 @@ class EPIFMVisualizer() :
                 max_runs = 100
                 #max_runs = multiprocessing.cpu_count()
 
-                while (time < end) :
+                while (time < end):
 
                     # set image file name
                     self.image_file_name = os.path.join(self.configs.movie_image_file_dir, \
@@ -1587,7 +1587,7 @@ class EPIFMVisualizer() :
                     frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
                     # loop for frame data
-                    for i in range(len(frame_data)) :
+                    for i in range(len(frame_data)):
 
                         # i-th data in a frame
                         i_time = frame_data[i][0]
@@ -1599,33 +1599,33 @@ class EPIFMVisualizer() :
                         # loop for particles (multiprocessing)
                         jobs = []
 
-                        for j in range(total) :
+                        for j in range(total):
                             proc = multiprocessing.Process(target=self.get_molecule_plane, args=(cell, i_time-time, data[j], j, p_0, p_b))
                             jobs.append(proc)
 
                         run = 0
 
-                        while (run < total) :
+                        while (run < total):
 
-                            for j in range(max_runs) :
+                            for j in range(max_runs):
 
-                                if (run + j < total) :
+                                if (run + j < total):
                                     jobs[run+j].start()
                                     sleep(0.1)
 
-                            for j in range(max_runs) :
+                            for j in range(max_runs):
 
-                                if (run + j < total) :
+                                if (run + j < total):
                                     jobs[run+j].join()
 
                             run += max_runs
 
 
-                    if (numpy.amax(cell) > 0) :
+                    if (numpy.amax(cell) > 0):
 
-                        if (self.configs.spatiocyte_bc_switch == True) :
+                        if (self.configs.spatiocyte_bc_switch == True):
                             camera = self.detector_output(cell, bc)
-                        else : camera = self.detector_output(cell)
+                        else: camera = self.detector_output(cell)
 
                         camera = self.detector_output(cell)
                         camera.astype('uint%d' % (self.configs.detector_ADC_bit))
@@ -1640,7 +1640,7 @@ class EPIFMVisualizer() :
 
 
 
-        def overwrite_smeared(self, cell_pixel, photon_dist, i, j) :
+        def overwrite_smeared(self, cell_pixel, photon_dist, i, j):
 
                 # i-th pixel
                 Ni_pixel = len(cell_pixel)
@@ -1649,28 +1649,28 @@ class EPIFMVisualizer() :
                 i_to   = i + Ni_pe/2
                 i_from = i - Ni_pe/2
 
-                if (i_to > Ni_pixel) :
+                if (i_to > Ni_pixel):
 
                     di_to = i_to - Ni_pixel
 
                     i0_to = int(Ni_pixel)
                     i1_to = int(Ni_pe - di_to)
 
-                else :
+                else:
 
                     di_to = Ni_pixel - (i + Ni_pe/2)
 
                     i0_to = int(Ni_pixel - di_to)
                     i1_to = int(Ni_pe)
 
-                if (i_from < 0) :
+                if (i_from < 0):
 
                     di_from = abs(i_from)
 
                     i0_from = 0
                     i1_from = int(di_from)
 
-                else :
+                else:
 
                     di_from = i_from
 
@@ -1679,8 +1679,8 @@ class EPIFMVisualizer() :
 
                 ddi = (i0_to - i0_from) - (i1_to - i1_from)
 
-                if (ddi > 0) : i0_to = i0_to - ddi
-                if (ddi < 0) : i1_to = i1_to - ddi
+                if (ddi > 0): i0_to = i0_to - ddi
+                if (ddi < 0): i1_to = i1_to - ddi
 
                 # j-th pixel
                 Nj_pixel = len(cell_pixel[0])
@@ -1689,28 +1689,28 @@ class EPIFMVisualizer() :
                 j_to   = j + Nj_pe/2
                 j_from = j - Nj_pe/2
 
-                if (j_to > Nj_pixel) :
+                if (j_to > Nj_pixel):
 
                     dj_to = j_to - Nj_pixel
 
                     j0_to = int(Nj_pixel)
                     j1_to = int(Nj_pe - dj_to)
 
-                else :
+                else:
 
                     dj_to = Nj_pixel - (j + Nj_pe/2)
 
                     j0_to = int(Nj_pixel - dj_to)
                     j1_to = int(Nj_pe)
 
-                if (j_from < 0) :
+                if (j_from < 0):
 
                     dj_from = abs(j_from)
 
                     j0_from = 0
                     j1_from = int(dj_from)
 
-                else :
+                else:
 
                     dj_from = j_from
 
@@ -1719,8 +1719,8 @@ class EPIFMVisualizer() :
 
                 ddj = (j0_to - j0_from) - (j1_to - j1_from)
 
-                if (ddj > 0) : j0_to = j0_to - ddj
-                if (ddj < 0) : j1_to = j1_to - ddj
+                if (ddj > 0): j0_to = j0_to - ddj
+                if (ddj < 0): j1_to = j1_to - ddj
 
                 # add to cellular plane
                 cell_pixel[i0_from:i0_to, j0_from:j0_to] += photon_dist[i1_from:i1_to, j1_from:j1_to]
@@ -1729,7 +1729,7 @@ class EPIFMVisualizer() :
 
 
 
-        def detector_output(self, cell, bc=None) :
+        def detector_output(self, cell, bc=None):
 
                 # Detector Output
                 voxel_radius = self.configs.spatiocyte_VoxelRadius
@@ -1747,28 +1747,28 @@ class EPIFMVisualizer() :
                 Nw_cell = len(cell)
                 Nh_cell = len(cell[0])
 
-                if (Nw_camera > Nw_cell) :
+                if (Nw_camera > Nw_cell):
 
                         w_cam_from = int((Nw_camera - Nw_cell)/2.0)
                         w_cam_to   = w_cam_from + Nw_cell
                         w_cel_from = 0
                         w_cel_to   = Nw_cell
 
-                else :
+                else:
 
                         w_cam_from = 0
                         w_cam_to   = Nw_camera
                         w_cel_from = int((Nw_cell - Nw_camera)/2.0)
                         w_cel_to   = w_cel_from + Nw_camera
 
-                if (Nh_camera > Nh_cell) :
+                if (Nh_camera > Nh_cell):
 
                         h_cam_from = int((Nh_camera - Nh_cell)/2.0)
                         h_cam_to   = h_cam_from + Nh_cell
                         h_cel_from = 0
                         h_cel_to   = Nh_cell
 
-                else :
+                else:
 
                         h_cam_from = 0
                         h_cam_to   = int(Nh_camera)
@@ -1784,16 +1784,16 @@ class EPIFMVisualizer() :
                 cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
 
                 # Photon distribution
-                for i in range(Nw_cell/Np) :
-                    for j in range(Nh_cell/Np) :
+                for i in range(Nw_cell/Np):
+                    for j in range(Nh_cell/Np):
 
                         # get photons
                         photons = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
 
-                        if (photons > 0) :
+                        if (photons > 0):
 
                             # get crosstalk
-                            if (self.effects.detector_crosstalk_switch == True) :
+                            if (self.effects.detector_crosstalk_switch == True):
 
                                 width = self.effects.detector_crosstalk_width
 
@@ -1808,14 +1808,14 @@ class EPIFMVisualizer() :
                                 # smeared photon distributions
                                 cell_pixel = self.overwrite_smeared(cell_pixel, smeared_photons, i, j)
 
-                            else :
+                            else:
 
                                 cell_pixel[i][j] = photons
 
 
                 # Photoelectron and ADC count distribution
-                for i in range(Nw_cell/Np) :
-                    for j in range(Nh_cell/Np) :
+                for i in range(Nw_cell/Np):
+                    for j in range(Nh_cell/Np):
 
                         # Detector : Quantum Efficiency
                         index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
@@ -1825,13 +1825,13 @@ class EPIFMVisualizer() :
                         signal = QE*cell_pixel[i][j]
 
                         # get constant background (photoelectrons)
-                        if (self.effects.background_switch == True) :
+                        if (self.effects.background_switch == True):
 
                             mean = self.effects.background_mean
                             background = QE*numpy.random.poisson(mean, None)
                             #background = QE*mean
 
-                        else : background = 0
+                        else: background = 0
 
                         # get EM Gain
                         M  = self.configs.detector_emgain
@@ -1847,9 +1847,9 @@ class EPIFMVisualizer() :
                         ADC = self.A2D_converter(PE)
                         #ADC = PE
 
-                        if (self.configs.spatiocyte_bc_switch == True) :
+                        if (self.configs.spatiocyte_bc_switch == True):
                             cell_pixel[i][j] = ADC*bc[i][j]
-                        else :
+                        else:
                             cell_pixel[i][j] = ADC
 
 
@@ -1858,7 +1858,7 @@ class EPIFMVisualizer() :
                 noise = self.get_noise(M*(signal + background))
 
                 PE = numpy.random.normal(M*(signal + background), noise, Nw_pixel*Nh_pixel)
-                camera = numpy.array(map(lambda x : self.A2D_converter(x), PE))
+                camera = numpy.array(map(lambda x: self.A2D_converter(x), PE))
                 #camera = PE
                 camera_pixel = camera.reshape([Nw_pixel, Nh_pixel])
 #                camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel])
@@ -1877,11 +1877,11 @@ class EPIFMVisualizer() :
                 ddw = (w_cam_to - w_cam_from) - (w_cel_to - w_cel_from)
                 ddh = (h_cam_to - h_cam_from) - (h_cel_to - h_cel_from)
 
-                if   (ddw > 0) : w_cam_to = w_cam_to - ddw
-                elif (ddw < 0) : w_cel_to = w_cel_to - ddw
+                if   (ddw > 0): w_cam_to = w_cam_to - ddw
+                elif (ddw < 0): w_cel_to = w_cel_to - ddw
 
-                if   (ddh > 0) : h_cam_to = h_cam_to - ddh
-                elif (ddh < 0) : h_cel_to = h_cel_to - ddh
+                if   (ddh > 0): h_cam_to = h_cam_to - ddh
+                elif (ddh < 0): h_cel_to = h_cel_to - ddh
 
                 camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
@@ -1901,12 +1901,12 @@ class EPIFMVisualizer() :
 
 
 
-        def A2D_converter(self, photo_electron) :
+        def A2D_converter(self, photo_electron):
 
             # check non-linearity
             Q_max = self.configs.detector_sat_charge
 
-            if (photo_electron > Q_max) :
+            if (photo_electron > Q_max):
                 photo_electron = Q_max
 
             # convert photoelectron to ADC counts (Grayscale)
@@ -1916,17 +1916,17 @@ class EPIFMVisualizer() :
 
             ADC = photo_electron/k + ADC0
 
-            if (ADC > ADC_max) :
+            if (ADC > ADC_max):
                 ADC = ADC_max
 
-            if (ADC < 0 ) :
+            if (ADC < 0 ):
                 ADC = 0
 
             return int(ADC)
 
 
 
-        def make_movie(self) :
+        def make_movie(self):
             """
             Make a movie by FFmpeg
             Requirement : Install FFmpeg (http://ffmpeg.org/)
