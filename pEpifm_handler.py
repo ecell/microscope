@@ -1835,11 +1835,12 @@ class EPIFMVisualizer():
                 M  = self.configs.detector_emgain
 
                 # get detector noise (photoelectrons)
-                noise = self.get_noise(signal + background)
+                #noise = self.get_noise(signal + background)
 
                 # get signal + background (photoelectrons)
-                PE = numpy.random.normal(M*(signal + background), noise, None)
+                #PE = numpy.random.normal(M*(signal + background), noise, None)
                 #PE = signal + background
+                PE = M * (signal + background)
 
                 # A/D converter : Photoelectrons --> ADC counts
                 ADC = self.A2D_converter(PE)
@@ -1850,16 +1851,15 @@ class EPIFMVisualizer():
                 else:
                     cell_pixel[i][j] = ADC
 
-
         # Flat image in pixel-scale
-        signal, background = 0, 0
-        noise = self.get_noise(M*(signal + background))
+        #signal, background = 0, 0
+        #noise = self.get_noise(M*(signal + background))
 
-        PE = numpy.random.normal(M*(signal + background), noise, Nw_pixel*Nh_pixel)
-        camera = numpy.array(map(lambda x: self.A2D_converter(x), PE))
+        #PE = numpy.random.normal(M*(signal + background), noise, Nw_pixel*Nh_pixel)
+        #camera = numpy.array(map(lambda x: self.A2D_converter(x), PE))
         #camera = PE
-        camera_pixel = camera.reshape([Nw_pixel, Nh_pixel])
-#        camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel])
+        #camera_pixel = camera.reshape([Nw_pixel, Nh_pixel])
+        camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel])
 
 
         w_cam_from = int(w_cam_from/Np)
