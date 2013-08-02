@@ -1522,13 +1522,18 @@ class EPIFMVisualizer() :
                     #cell = self.overwrite_signal(cell, signal, p_i)
 
         def output_frames(self, num_div=1):
-                # set A/D Converter
-                self.set_ADConverter()
+            # set A/D Converter
+            self.set_ADConverter()
 
-                start = self.configs.detector_start_time
-                end  = self.configs.detector_end_time
-                exposure_time  = self.configs.detector_exposure_time
-                num_timesteps = int(math.ceil((end - start) / exposure_time))
+            start = self.configs.detector_start_time
+            end = self.configs.detector_end_time
+            exposure_time = self.configs.detector_exposure_time
+            num_timesteps = int(math.ceil((end - start) / exposure_time))
+
+            envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
+            if envname in os.environ and os.environ[envname]:
+                self.output_frames_each_process(0, num_timesteps)
+            else:
                 num_processes = multiprocessing.cpu_count()
                 n, m = divmod(num_timesteps, num_processes)
                 # when 10 tasks is distributed to 4 processes,
@@ -1538,17 +1543,17 @@ class EPIFMVisualizer() :
                 processes = []
                 start_index = 0
                 for chunk in chunks:
-                        stop_index = start_index + chunk
-                        process = multiprocessing.Process(
-                                target=self.output_farmes_each_process,
-                                args=(start_index, stop_index))
-                        process.start()
-                        processes.append(process)
-                        start_index = stop_index
+                    stop_index = start_index + chunk
+                    process = multiprocessing.Process(
+                        target=self.output_frames_each_process,
+                        args=(start_index, stop_index))
+                    process.start()
+                    processes.append(process)
+                    start_index = stop_index
                 for process in processes:
-                        process.join()
+                    process.join()
 
-        def output_farmes_each_process(self, start_count, stop_count):
+        def output_frames_each_process(self, start_count, stop_count):
                 # define observational image plane in nm-scale
                 voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
