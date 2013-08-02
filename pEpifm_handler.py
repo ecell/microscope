@@ -1089,30 +1089,30 @@ class EPIFMVisualizer() :
 
 		return pos
 
+        def polar2cartesian_coordinates(self, r, t, x, y):
+            X, Y = numpy.meshgrid(x, y)
 
+            new_r = numpy.sqrt(X*X + Y*Y)
+            new_t = numpy.arctan2(X, Y)
 
-	def polar2cartesian(self, r, t, grid, x, y) :
+            ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
+            it = interp1d(t, numpy.arange(len(t)))
 
-		X, Y = numpy.meshgrid(x, y)
+            new_ir = ir(new_r.ravel())
+            new_it = it(new_t.ravel())
 
-		new_r = numpy.sqrt(X*X + Y*Y)
-		new_t = numpy.arctan2(X, Y)
+            new_ir[new_r.ravel() > r.max()] = len(r)-1
+            new_ir[new_r.ravel() < r.min()] = 0
 
-		ir = interp1d(r, numpy.arange(len(r)), bounds_error=False)
-		it = interp1d(t, numpy.arange(len(t)))
+            return numpy.array([new_ir, new_it])
 
-		new_ir = ir(new_r.ravel())
-		new_it = it(new_t.ravel())
+        def polar2cartesian(self, grid, coordinates, shape):
+            right = map_coordinates(grid, coordinates, order=3).reshape(shape)
+            left = right[..., ::-1]
 
-		new_ir[new_r.ravel() > r.max()] = len(r)-1
-		new_ir[new_r.ravel() < r.min()] = 0
+            psf_cart = numpy.hstack((left, right[:, 1:]))
 
-		right = map_coordinates(grid, numpy.array([new_ir, new_it]), order=3).reshape(new_r.shape)
-		left  = right[...,::-1]
-
-		psf_cart = numpy.hstack((left, right[:,1:]))
-
-		return psf_cart
+            return psf_cart
 
 
 
@@ -1196,93 +1196,93 @@ class EPIFMVisualizer() :
 
 		return intensity
 
-
-
         def get_signal(self, time, pid, s_index, p_i, p_b, p_0) :
+            # set focal point
+            x_0, y_0, z_0 = p_0
 
-		# set focal point
-		x_0, y_0, z_0 = p_0
+            # set source center
+            x_b, y_b, z_b = p_b
 
-                # set source center
-                x_b, y_b, z_b = p_b
+            # set particle position
+            x_i, y_i, z_i = p_i
 
-		# set particle position
-                x_i, y_i, z_i = p_i
+            #
+            r = self.configs.radial
+            d = self.configs.depth
 
-		#
-		r = self.configs.radial
-		d = self.configs.depth
+            # beam axial position
+            d_s = abs(x_i - x_b)
 
-		# beam axial position
-		d_s = abs(x_i - x_b)
+            if (d_s < len(d)):
+                source_depth = d_s
+            else:
+                source_depth = d[-1]
 
-                if (d_s < len(d)) :
-		    source_depth = d_s
-                else :
-		    source_depth = d[-1]
+            # beam lateral position
+            rr = numpy.sqrt((y_i-y_0)**2 + (z_i-z_0)**2)
 
-		# beam lateral position
-		rr = numpy.sqrt((y_i-y_0)**2 + (z_i-z_0)**2)
+            if (rr < len(r)):
+                source_radius = rr
+            else:
+                source_radius = r[-1]
 
-		if (rr < len(r)) :
-		    source_radius = rr
-		else :
-		    source_radius = r[-1]
+            # normalization
+            #life_time  = self.configs.fluorophore_lifetime
+            unit_time = 1.0/self.configs.detector_fps
 
-                # normalization
-                #life_time  = self.configs.fluorophore_lifetime
-		unit_time = 1.0/self.configs.detector_fps
+            #if (life_time < frame_time) :
+            #    unit_time = life_time
+            #else :
+            #    unit_time = frame_time
 
-		#if (life_time < frame_time) :
-		#    unit_time = life_time
-		#else :
-		#    unit_time = frame_time
+            #radius = self.configs.spatiocyte_VoxelRadius
+            radius = 1e-9
 
-                #radius = self.configs.spatiocyte_VoxelRadius
-                radius = 1e-9
+            unit_area = radius**2
+            norm = unit_area*unit_time
 
-		unit_area = radius**2
-		norm = unit_area*unit_time
+            # get illumination PSF
+            source_psf = norm*self.configs.source_flux[int(source_depth)][int(source_radius)]
+            source_max = norm*self.configs.source_flux[0][0]
 
-		# get illumination PSF
-		source_psf = norm*self.configs.source_flux[int(source_depth)][int(source_radius)]
-		source_max = norm*self.configs.source_flux[0][0]
+            # signal conversion : Output Intensity = Physics * PSF (Beam)
+            #Intensity = self.get_intensity(time, pid, source_psf, source_max)
+            Ratio = self.effects.conversion_ratio
+            Intensity = Ratio * source_psf
 
-                # signal conversion : Output Intensity = Physics * PSF (Beam)
-		#Intensity = self.get_intensity(time, pid, source_psf, source_max)
-		Ratio = self.effects.conversion_ratio
-		Intensity = Ratio * source_psf
+            # fluorophore axial position
+            if (self.effects.depth_of_focus_switch == True):
+                d_f = self.get_depth_of_focus(p_i, p_0)
+            else:
+                d_f = abs(x_i - x_0)
 
-		# fluorophore axial position
-                if (self.effects.depth_of_focus_switch == True) :
-                    d_f = self.get_depth_of_focus(p_i, p_0)
-                else :
-		    d_f = abs(x_i - x_0)
+            if (d_f < len(d)):
+                fluo_depth = d_f
+            else:
+                fluo_depth = d[-1]
 
-		if (d_f < len(d)) :
-		    fluo_depth = d_f
-		else :
-		    fluo_depth = d[-1]
+            # coordinate transformation : polar --> cartisian
+            theta = numpy.linspace(0, 180, 181)
 
-		# coordinate transformation : polar --> cartisian
-		theta = numpy.linspace(0, 180, 181)
+            psf_t = numpy.array(map(lambda x: 1.00, theta))
+            psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
 
+            psf_polar = numpy.array(map(lambda x: psf_t*x, psf_r))
+
+            # cache coordinates
+            if not hasattr(self, 'coordinates'):
                 z = numpy.linspace(0, +r[-1], len(r))
                 y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
 
-		psf_t = numpy.array(map(lambda x : 1.00, theta))
-		psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
+                self.coordinates = self.polar2cartesian_coordinates(r, theta, z, y)
 
-		psf_polar = numpy.array(map(lambda x : psf_t*x, psf_r))
+            # get fluorophore PSF
+            fluo_psf = numpy.array(self.polar2cartesian(psf_polar, self.coordinates, (2 * len(r) - 1, len(r))))
 
-                # get fluorophore PSF
-		fluo_psf  = numpy.array(self.polar2cartesian(r, theta, psf_polar, z, y))
+            # signal conversion : Output PSF = Intensity * PSF(Fluorophore)
+            signal = Intensity * fluo_psf
 
-                # signal conversion : Output PSF = Intensity * PSF(Fluorophore)
-		signal = Intensity * fluo_psf
-
-
-                return signal
+            return signal
 
 
 
