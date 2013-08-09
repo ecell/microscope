@@ -1107,11 +1107,11 @@ class EPIFMVisualizer() :
             return numpy.array([new_ir, new_it])
 
         def polar2cartesian(self, grid, coordinates, shape):
-            right = map_coordinates(grid, coordinates, order=3).reshape(shape)
-            left = right[..., ::-1]
-
-            psf_cart = numpy.hstack((left, right[:, 1:]))
-
+            r = shape[0] - 1
+            psf_cart = numpy.empty([2 * r + 1, 2 * r + 1])
+            psf_cart[r:, r:] = map_coordinates(grid, coordinates, order=0).reshape(shape)
+            psf_cart[r:, :r] = psf_cart[r:, :r:-1]
+            psf_cart[:r, :] = psf_cart[:r:-1, :]
             return psf_cart
 
 
@@ -1262,9 +1262,9 @@ class EPIFMVisualizer() :
                 fluo_depth = d[-1]
 
             # coordinate transformation : polar --> cartisian
-            theta = numpy.linspace(0, 180, 181)
+            theta = numpy.linspace(0, 90, 91)
 
-            psf_t = numpy.array(map(lambda x: 1.00, theta))
+            psf_t = numpy.ones_like(theta)
             psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
 
             psf_polar = numpy.array(map(lambda x: psf_t*x, psf_r))
@@ -1272,12 +1272,11 @@ class EPIFMVisualizer() :
             # cache coordinates
             if not hasattr(self, 'coordinates'):
                 z = numpy.linspace(0, +r[-1], len(r))
-                y = numpy.linspace(-r[-1], +r[-1], 2*len(r)-1)
-
+                y = numpy.linspace(0, +r[-1], len(r))
                 self.coordinates = self.polar2cartesian_coordinates(r, theta, z, y)
 
             # get fluorophore PSF
-            fluo_psf = numpy.array(self.polar2cartesian(psf_polar, self.coordinates, (2 * len(r) - 1, len(r))))
+            fluo_psf = numpy.array(self.polar2cartesian(psf_polar, self.coordinates, (len(r), len(r))))
 
             # signal conversion : Output PSF = Intensity * PSF(Fluorophore)
             signal = Intensity * fluo_psf
