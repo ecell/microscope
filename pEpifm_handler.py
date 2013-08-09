@@ -1546,98 +1546,91 @@ class EPIFMVisualizer() :
                     process = multiprocessing.Process(
                         target=self.output_frames_each_process,
                         args=(start_index, stop_index))
-                    process.start()
                     processes.append(process)
                     start_index = stop_index
+                for process in processes:
+                    process.start()
                 for process in processes:
                     process.join()
 
         def output_frames_each_process(self, start_count, stop_count):
-                # define observational image plane in nm-scale
-                voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+            # define observational image plane in nm-scale
+            voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
-                Nz = int(self.configs.spatiocyte_lengths[0][2]*voxel_size)
-                Ny = int(self.configs.spatiocyte_lengths[0][1]*voxel_size)
-                Nx = int(self.configs.spatiocyte_lengths[0][0]*voxel_size)
+            Nz = int(self.configs.spatiocyte_lengths[0][2]*voxel_size)
+            Ny = int(self.configs.spatiocyte_lengths[0][1]*voxel_size)
+            Nx = int(self.configs.spatiocyte_lengths[0][0]*voxel_size)
 
-                z = numpy.linspace(0, Nz-1, Nz)
-                y = numpy.linspace(0, Ny-1, Ny)
-                Z, Y = numpy.meshgrid(z, y)
+            z = numpy.linspace(0, Nz-1, Nz)
+            y = numpy.linspace(0, Ny-1, Ny)
+            Z, Y = numpy.meshgrid(z, y)
 
-                # focal point
-                p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
+            # focal point
+            p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
 
-                # beam position : Assuming beam position = focal point for temporary
-                p_b = copy.copy(p_0)
+            # beam position : Assuming beam position = focal point for temporary
+            p_b = copy.copy(p_0)
 
-                # set boundary condition
-                if (self.configs.spatiocyte_bc_switch == True) :
+            # set boundary condition
+            if self.configs.spatiocyte_bc_switch is True:
+                bc = numpy.zeros(shape=(Nz, Ny))
+                bc = self.set_boundary_plane(bc, p_b, p_0)
 
-                    bc = numpy.zeros(shape=(Nz, Ny))
-                    bc = self.set_boundary_plane(bc, p_b, p_0)
+            exposure_time = self.configs.detector_exposure_time
 
-                # frame interval
-                frame_interval = 1.0/self.configs.detector_fps
-                #frame_interval = self.configs.detector_frame_interval
-                exposure_time  = self.configs.detector_exposure_time
+            detector_start_time = self.configs.detector_start_time
+            time = detector_start_time + exposure_time * start_count
+            end = detector_start_time + exposure_time * stop_count
 
-                detector_start_time = self.configs.detector_start_time
-                time = detector_start_time + exposure_time * start_count
-                end = detector_start_time + exposure_time * stop_count
+            # data-time interval
+            t0 = self.configs.spatiocyte_data[0][0]
+            t1 = self.configs.spatiocyte_data[1][0]
 
-                # data-time interval
-                t0 = self.configs.spatiocyte_data[0][0]
-                t1 = self.configs.spatiocyte_data[1][0]
+            delta_data = t1 - t0
+            delta_time = int(round(exposure_time/delta_data))
+            #delta_time = int(round(exposure_time/frame_interval))
 
-                delta_data  = t1 - t0
-                delta_time = int(round(exposure_time/delta_data))
-                #delta_time = int(round(exposure_time/frame_interval))
+            # create frame data composed by frame element data
+            count0 = int(round(detector_start_time / exposure_time))
 
-                # create frame data composed by frame element data
-                count = start_count
-                count0 = int(round(detector_start_time / exposure_time))
+            # initialize Physical effects
+            #length0 = len(self.configs.spatiocyte_data[0][1])
+            #self.effects.set_states(t0, length0)
 
-                # initialize Physical effects
-                #length0 = len(self.configs.spatiocyte_data[0][1])
-                #self.effects.set_states(t0, length0)
+            for count in range(start_count, stop_count):
+                # set image file name
+                image_file_name = os.path.join(
+                    self.configs.movie_image_file_dir,
+                    self.configs.movie_image_file_name_format % (count))
 
-                while (time < end) :
-                        # set image file name
-                        image_file_name = os.path.join(
-                                        self.configs.movie_image_file_dir,
-                                        self.configs.movie_image_file_name_format % (count))
+                print 'time : ', time, ' sec (', count, ')', start_count, stop_count
 
-                        print 'time : ', time, ' sec (', count, ')'
+                # define cell
+                cell = numpy.zeros(shape=(Nz, Ny))
 
-                        # define cell
-                        cell = numpy.zeros(shape=(Nz, Ny))
+                count_start = (count - count0)*delta_time
+                count_end = (count - count0 + 1)*delta_time
 
-                        count_start = (count - count0)*delta_time
-                        count_end   = (count - count0 + 1)*delta_time
+                frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
-                        frame_data = self.configs.spatiocyte_data[count_start:count_end]
+                # loop for frame data
+                for i, (i_time, data) in enumerate(frame_data):
+                    print '\t', '%02d-th frame : ' % (i), i_time, ' sec'
+                    # loop for particles
+                    for j, data_j in enumerate(data):
+                        self.get_molecule_plane(cell, i_time - time, data_j, j, p_0, p_b)
 
-                        # loop for frame data
-                        for i, (i_time, data) in enumerate(frame_data):
-                                print '\t', '%02d-th frame : ' % (i), i_time, ' sec'
-                                # loop for particles
-                                for j, data_j in enumerate(data):
-                                        self.get_molecule_plane(
-                                                        cell, i_time - time,
-                                                        data_j, j, p_0, p_b)
+                if numpy.amax(cell) > 0:
+                    if self.configs.spatiocyte_bc_switch:
+                        camera = self.detector_output(cell, bc)
+                    else:
+                        camera = self.detector_output(cell)
 
-                        if (numpy.amax(cell) > 0):
-                                if self.configs.spatiocyte_bc_switch:
-                                        camera = self.detector_output(cell, bc)
-                                else:
-                                        camera = self.detector_output(cell)
+                    camera.astype('uint%d' % (self.configs.detector_ADC_bit))
 
-                                camera.astype('uint%d' % (self.configs.detector_ADC_bit))
-
-                                # save image to file
-                                toimage(camera, cmin=1600, cmax=6000).save(image_file_name)
-                        time  += exposure_time
-                        count += 1
+                    # save image to file
+                    toimage(camera, cmin=1600, cmax=6000).save(image_file_name)
+                time += exposure_time
 
 	def overwrite_smeared(self, cell_pixel, photon_dist, i, j) :
 
