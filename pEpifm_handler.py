@@ -1261,25 +1261,8 @@ class EPIFMVisualizer() :
             else:
                 fluo_depth = d[-1]
 
-            # coordinate transformation : polar --> cartisian
-            theta = numpy.linspace(0, 90, 91)
-
-            psf_t = numpy.ones_like(theta)
-            psf_r = self.configs.fluorophore_psf[int(fluo_depth)]
-
-            psf_polar = numpy.array(map(lambda x: psf_t*x, psf_r))
-
-            # cache coordinates
-            if not hasattr(self, 'coordinates'):
-                z = numpy.linspace(0, +r[-1], len(r))
-                y = numpy.linspace(0, +r[-1], len(r))
-                self.coordinates = self.polar2cartesian_coordinates(r, theta, z, y)
-
-            # get fluorophore PSF
-            fluo_psf = numpy.array(self.polar2cartesian(psf_polar, self.coordinates, (len(r), len(r))))
-
             # signal conversion : Output PSF = Intensity * PSF(Fluorophore)
-            signal = Intensity * fluo_psf
+            signal = Intensity * self.fluo_psf[int(fluo_depth)]
 
             return signal
 
@@ -1488,52 +1471,45 @@ class EPIFMVisualizer() :
 
 		#return cell
 
+        def get_molecule_plane(self, cell, time, data, pid, p_b, p_0):
+            voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
+            # particles coordinate, species and lattice IDs
+            c_id, s_id, l_id = data
 
-	def get_molecule_plane(self, cell, time, data, pid, p_b, p_0) :
+            sid_array = numpy.array(self.configs.spatiocyte_species_id)
+            s_index = (numpy.abs(sid_array - int(s_id))).argmin()
 
-		voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+            if self.configs.spatiocyte_observables[s_index] is True:
+                # particles coordinate in real(nm) scale
+                pos = self.get_coordinate(c_id)
+                p_i = numpy.array(pos)*voxel_size
 
-		# particles coordinate, species and lattice IDs
-                c_id, s_id, l_id = data
+                # photons spreading to all directions
+                Norm = 1.00/(4.0*numpy.pi)
 
-		sid_array = numpy.array(self.configs.spatiocyte_species_id)
-		s_index = (numpy.abs(sid_array - int(s_id))).argmin()
+                if self.configs.spatiocyte_index[s_index] == 'dR':
+                    Norm = 2.00/(4.0*numpy.pi)
 
-		if self.configs.spatiocyte_observables[s_index] is True :
+                # get signal matrix
+                signal = Norm*numpy.array(self.get_signal(time, pid, s_index, p_i, p_b, p_0))
 
-		    # particles coordinate in real(nm) scale
-                    pos = self.get_coordinate(c_id)
-                    p_i = numpy.array(pos)*voxel_size
-
-		    # photons spreading to all directions
-                    Norm = 1.00/(4.0*numpy.pi)
-
-                    if (self.configs.spatiocyte_index[s_index] == 'dR') :
-			Norm = 2.00/(4.0*numpy.pi)
-
-                    #print pid, s_id, p_i
-                    # get signal matrix
-                    signal = Norm*numpy.array(self.get_signal(time, pid, s_index, p_i, p_b, p_0))
-
-                    # add signal matrix to image plane
-                    self.overwrite_signal(cell, signal, p_i)
-                    #cell = self.overwrite_signal(cell, signal, p_i)
+                # add signal matrix to image plane
+                self.overwrite_signal(cell, signal, p_i)
 
         def output_frames(self, num_div=1):
             # set A/D Converter
             self.set_ADConverter()
+
+            self.set_fluo_psf()
 
             start = self.configs.detector_start_time
             end = self.configs.detector_end_time
             exposure_time = self.configs.detector_exposure_time
             num_timesteps = int(math.ceil((end - start) / exposure_time))
 
-            envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
-            if envname in os.environ and os.environ[envname]:
-                self.output_frames_each_process(0, num_timesteps)
-            else:
-                num_processes = multiprocessing.cpu_count()
+            if self.use_multiprocess():
+                num_processes = min(multiprocessing.cpu_count(), num_timesteps)
                 n, m = divmod(num_timesteps, num_processes)
                 # when 10 tasks is distributed to 4 processes,
                 # number of tasks of each process must be [3, 3, 2, 2]
@@ -1552,6 +1528,8 @@ class EPIFMVisualizer() :
                     process.start()
                 for process in processes:
                     process.join()
+            else:
+                self.output_frames_each_process(0, num_timesteps)
 
         def output_frames_each_process(self, start_count, stop_count):
             # define observational image plane in nm-scale
@@ -1580,7 +1558,6 @@ class EPIFMVisualizer() :
 
             detector_start_time = self.configs.detector_start_time
             time = detector_start_time + exposure_time * start_count
-            end = detector_start_time + exposure_time * stop_count
 
             # data-time interval
             t0 = self.configs.spatiocyte_data[0][0]
@@ -1603,7 +1580,7 @@ class EPIFMVisualizer() :
                     self.configs.movie_image_file_dir,
                     self.configs.movie_image_file_name_format % (count))
 
-                print 'time : ', time, ' sec (', count, ')', start_count, stop_count
+                print 'time : ', time, ' sec (', count, ')'
 
                 # define cell
                 cell = numpy.zeros(shape=(Nz, Ny))
@@ -1997,386 +1974,97 @@ class EPIFMVisualizer() :
 	    self.output_frames(num_div=num_div)
 	    self.make_movie()
 
+        def use_multiprocess(self):
+            envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
+            return not (envname in os.environ and os.environ[envname])
 
+        def set_fluo_psf(self):
+            depths = set()
 
-#	def get_plots(self, plot_filename=None) :
-#
-#            pdf_page = PdfPages(plot_filename)
-#
-#	    self.plot_LightSource(pdf_page)
-#	    self.plot_Fluorophore(pdf_page)
-#	    self.plot_Detector(pdf_page)
-#	    self.plot_SNR(pdf_page)
-#	    self.plot_Image(pdf_page, 0)
-#	    #self.plot_Image(pdf_page, 100)
-#	    #self.plot_Image(pdf_page, 400)
-#	    #self.plot_Image(pdf_page, 600)
-#	    #self.plot_Image(pdf_page, 900)
-#
-#	    pdf_page.close()
-#
-#
-#
-#	def plot_LightSource(self, pdf_page) :
-#
-#            #####
-##            fig_spec_wl = pylab.figure()
-##
-##            # beam spectrum
-##            pylab.fill(self.configs.wave_length, self.configs.fluoex_eff, color='lightblue', label='Incident Beam')
-##
-##            # excitation filter
-##            if self.configs.excitation_switch == True :
-##
-##                pylab.plot(self.configs.wave_length, self.configs.excitation_eff, color='blue', label='Excitation Filter', linewidth=2)
-##
-##
-##            pylab.axis([300, 800, 0, 100])
-##            pylab.xlabel('Wave Length [nm]')
-##            pylab.ylabel('Beam Intensity : %f [W/cm^2]' % (self.configs.source_intensity))
-##
-##            pdf_page.savefig(fig_spec_wl)
-#
-#            ######
-#            fig_spec_pos = pylab.figure()
-#
-#            pylab.plot(self.configs.radial, self.configs.source_flux[0], color='pink', label='Radial PSF', linewidth=2)
-#            pylab.axis([0, self.configs.radial[-1], 0, self.configs.source_flux[0][0]])
-#            pylab.xlabel('Radial Position [nm]')
-#            pylab.ylabel('Beam Photon Flux [#/(m^2 sec)]')
-#            pylab.title(self.configs.source_type)
-#
-#            pdf_page.savefig(fig_spec_pos)
-#
-#            ######
-#            fig_spec_cont = pylab.figure()
-#
-#            spec_scale = numpy.linspace(0, self.configs.source_flux[0][0], 101, endpoint=True)
-#            X, Y = numpy.meshgrid(self.configs.radial, self.configs.depth)
-#
-#            pylab.contour(X, Y,  self.configs.source_flux, spec_scale, linewidth=0.1, color='k')
-#            pylab.contourf(X, Y, self.configs.source_flux, spec_scale, cmap=pylab.cm.jet)
-#
-#            pylab.axis([0, self.configs.radial[-1], 0, self.configs.depth[-1]])
-#            pylab.xlabel('Radial [nm]')
-#            pylab.ylabel('Depth [nm]')
-#            pylab.title('Beam Photon Flux [#/(m^2 sec)]')
-#
-#            pdf_page.savefig(fig_spec_cont)
-#
-#
-#
-#
-#	def plot_Fluorophore(self, pdf_page) :
-#
-#    	    #####
-#	    fig_intensity = pylab.figure()
-#
-#            # fluorophore excitation and emission
-#            pylab.fill(self.configs.wave_length, self.configs.fluoex_eff, color='lightblue', label='Fluorophore Ex')
-#            pylab.fill(self.configs.wave_length, self.configs.fluoem_eff, color='pink', label='Fluorophore Em')
-#
-#            pylab.axis([300, 800, 0, 100])
-#            pylab.xlabel('Wave Length [nm]')
-#            pylab.ylabel('Intensity [%]')
-#            pdf_page.savefig(fig_intensity)
-#
-#    	    ######
-#    	    fig_spec_pos = pylab.figure()
-#
-#    	    pylab.plot(self.configs.radial, self.configs.fluorophore_psf[0], color='pink', label='Radial PSF', linewidth=2)
-#    	    pylab.xlabel('Radial Position [nm]')
-#    	    pylab.ylabel('Single Photon')
-#    	    pylab.title('Fluorophore : ' + self.configs.fluorophore_type)
-#
-#    	    pdf_page.savefig(fig_spec_pos)
-#
-#            ######
-#            fig_spec_cont = pylab.figure()
-#
-#            spec_scale = numpy.linspace(0, self.configs.fluorophore_psf[0][0], 101, endpoint=True)
-#            X, Y = numpy.meshgrid(self.configs.radial, self.configs.depth)
-#
-#            pylab.contour(X, Y,  self.configs.fluorophore_psf, spec_scale, linewidth=0.1, color='k')
-#            pylab.contourf(X, Y, self.configs.fluorophore_psf, spec_scale, cmap=pylab.cm.jet)
-#
-#            pylab.axis([0, 600, 0, 1000])
-#            pylab.xlabel('Radial [nm]')
-#            pylab.ylabel('Depth [nm]')
-#            pylab.title('Photons')
-#            pdf_page.savefig(fig_spec_cont)
-#
-#            #####
-#            fig_spec_wl = pylab.figure()
-#
-#            # fluorophore excitation and emission
-#            pylab.fill(self.configs.wave_length, self.configs.fluoex_eff, color='lightblue', label='Fluorophore Ex')
-#            pylab.fill(self.configs.wave_length, self.configs.fluoem_eff, color='pink', label='Fluorophore Em')
-#
-#            # excitation filter
-#            if self.configs.excitation_switch == True :
-#
-#                pylab.plot(self.configs.wave_length, self.configs.excitation_eff, color='blue', label='Excitation Filter', linewidth=2)
-#
-#            # dichroic mirror
-#            if self.configs.dichroic_switch == True :
-#
-#                pylab.plot(self.configs.wave_length, self.configs.dichroic_eff, color='green', label='Dichroic Mirror', linewidth=2)
-#
-#            # emission filter
-#            if self.configs.emission_switch == True :
-#
-#                pylab.plot(self.configs.wave_length, self.configs.emission_eff, color='red', label='Emission Filter', linewidth=2)
-#
-#            pylab.axis([300, 800, 0, 100])
-#            pylab.xlabel('Wave Length [nm]')
-#            pylab.ylabel('Transmission Efficiency [%]')
-#
-#            pdf_page.savefig(fig_spec_wl)
-#
-#
-#
-#
-#        def plot_Detector(self, pdf_page) :
-#
-#    	    ######
-#    	    fig_qeff = pylab.figure()
-#
-#	    #pylab.plot(self.configs.wave_length, self.configs.detector_red,   color='red',   label='QE (Red)',   linewidth=2)
-#	    #pylab.plot(self.configs.wave_length, self.configs.detector_green, color='green', label='QE (Green)', linewidth=2)
-#	    #pylab.plot(self.configs.wave_length, self.configs.detector_blue,  color='blue',  label='QE (Blue)',  linewidth=2)
-#	    pylab.plot(self.configs.wave_length, self.configs.detector_qeff,  color='black',  label='QE',  linewidth=2)
-#            pylab.axis([400, 1000, 0, 1.10])
-#            pylab.xlabel('Wave Length [nm]')
-#            pylab.ylabel('Quantum Efficiency')
-#	    pylab.title('Detector : ' + self.configs.detector_type)
-#
-#    	    pdf_page.savefig(fig_qeff)
-#
-#            fig_linearity = pylab.figure()
-#
-#	    ADC_maxQ = self.configs.detector_ADC_maxQ
-#	    photoelectrons = numpy.array([i for i in range(int(ADC_maxQ))])
-#
-#	    k = self.configs.detector_ADC_gain
-#	    offset = self.configs.detector_ADC_offset
-#            ADC = map(lambda x : self.get_ADC_value(x), photoelectrons)
-#
-#            pylab.plot(photoelectrons, ADC,  color='black',  label='linearity',  linewidth=2)
-#            pylab.axis([0, ADC_maxQ, 0, ADC[-1]+offset])
-#            pylab.xlabel('Capacity [electron]')
-#            pylab.ylabel('%d-bit counts' % (self.configs.detector_ADC_bit))
-#            pylab.title('Linearity : k = %.2f [count/electron], Offset = %d' % (k, offset))
-#
-#            pdf_page.savefig(fig_linearity)
-#
-#
-#
-#        def plot_SNR(self, pdf_page) :
-#
-#	    # Fluorophores emission wavelength
-#            index_em = self.configs.fluoem_eff.index(max(self.configs.fluoem_eff))
-#	    wave_length = int(self.configs.wave_length[index_em])
-#
-#	    # EM gain
-#	    emgain = self.configs.detector_emgain
-#
-#            ###### SNR
-#	    photon_number = numpy.array([i+1 for i in range(10000)])
-#	    absolute_snr  = numpy.array([0.0 for i in range(len(photon_number))])
-#	    relative_snr  = numpy.array([1.0 for i in range(len(photon_number))])
-#	    ideal_snr = numpy.array([photon_number[i]/numpy.sqrt(photon_number[i]) for i in range(len(photon_number))])
-#	    ideal_relsnr  = numpy.array([1.0 for i in range(len(photon_number))])
-#
-#            index = (numpy.abs(self.configs.wave_length - int(wave_length))).argmin()
-#	    Q = self.configs.detector_qeff[index]
-#
-#	    # get noise
-#	    noise_free = numpy.sqrt(photon_number)
-#	    noise = self.get_noise(Q*photon_number)
-#
-#	    # get SNR and relative SNR
-#	    absolute_snr = (Q*photon_number)/noise
-#	    relative_snr = absolute_snr/ideal_snr
-#
-#	    ###### Noise (wave_length)
-#            fig_noise_wl= pylab.figure()
-#            pylab.loglog(photon_number, noise)
-#            pylab.plot(photon_number, noise_free, color='purple', label='Noise Free', linewidth=2)
-#            pylab.plot(photon_number, noise, color='red', label='Noise', linewidth=2)
-#
-#            pylab.axis([photon_number[0], photon_number[-1], 1, noise[-1]])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('Noise')
-#            pylab.title('%d nm, EM gain = %d' % (wave_length, emgain))
-#            pdf_page.savefig(fig_noise_wl)
-#
-#
-#    	    ###### SNR (wave_length)
-#            fig_snr_wl= pylab.figure()
-#            pylab.loglog(photon_number, absolute_snr)
-#            pylab.plot(photon_number, ideal_snr, color='purple', label='Perfect', linewidth=2)
-#            pylab.plot(photon_number, absolute_snr, color='red', label='SNR', linewidth=2)
-#    
-#            pylab.axis([photon_number[0], photon_number[-1], 0.01, ideal_snr[-1]])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('SNR')
-#            pylab.title('%d nm, EM gain = %d' % (wave_length, emgain))
-#            pdf_page.savefig(fig_snr_wl)
-#    
-#            ###### Relative SNR (wave_length)
-#            fig_rsnr_wl= pylab.figure()
-#            pylab.semilogx(photon_number)
-#            pylab.plot(photon_number, ideal_relsnr, color='purple', label='Perfect', linewidth=2)
-#            pylab.plot(photon_number, relative_snr, color='red', label='SNR', linewidth=2)
-#    
-#            pylab.axis([1, photon_number[-1], 0, 1.10])
-#            pylab.xlabel('Input Signal [photons/pixel]')
-#            pylab.ylabel('Relative SNR')
-#            pylab.title('%d nm, EM gain = %d' % (wave_length, emgain))
-#            pdf_page.savefig(fig_rsnr_wl)
-#
-#
-#
-#	def plot_Image(self, pdf_page, x_df) :
-#
-#            # define observational image plane in nm-scale
-#            voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
-#
-#            Nz = int(self.configs.spatiocyte_lengths[0][2]*voxel_size)
-#            Ny = int(self.configs.spatiocyte_lengths[0][1]*voxel_size)
-#            Nx = int(self.configs.spatiocyte_lengths[0][0]*voxel_size)
-#
-#            # focal point
-#            p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
-#
-#            # beam position : Assuming beam position = focal point for temporary
-#            p_b = copy.copy(p_0)
-#
-#	    # molecule position at beam waist
-#	    #N_part = 3
-#	    #p = numpy.array([copy.copy(p_b) for i in range(N_part)])
-#	    p = copy.copy(p_b)
-#
-#            # defining image
-#            image = numpy.zeros(shape=(Nz, Ny))
-#
-#	    #for i in range(len(p)) :
-#	    p[0] = abs(x_df - p[0])
-#
-#	    # signal
-#	    signal = numpy.array(self.get_signal(p, p_b, p_0))
-#
-#	    # place signal matrix to image plane
-#	    image = self.overwrite(image, signal, p)
-#
-#	    # detector output
-#	    output = self.detector_output(image)
-#
-#	    ##### save grayscale image at beam waist position
-#	    fig_image_gray = pylab.figure()
-#
-#	    ADC_max = 2**self.configs.detector_ADC_bit - 1
-#	    ADC0 = self.configs.detector_ADC_offset
-#	    pylab.imshow(output, cmap=pylab.cm.gray, vmin=0, vmax=ADC_max)
-#	    pylab.colorbar()
-#            pylab.xlabel('Pixel')
-#            pylab.ylabel('Pixel')
-#	    pylab.title('Depth : %d nm' % (x_df))
-#
-#	    pdf_page.savefig(fig_image_gray)
-#
-#	    ###### save color image
-#            fig_image_color = pylab.figure()
-#
-#            pylab.imshow(output)
-#            #pylab.imshow(output, vmin=2000, vmax=2030)
-#            pylab.colorbar()
-#            pylab.xlabel('Pixel')
-#            pylab.ylabel('Pixel')
-#            pylab.title('Depth : %d nm' % (x_df))
-#
-#            pdf_page.savefig(fig_image_color)
-#
-#
-#	    ##### save instensity at beam waist
-#	    fig_intensity = pylab.figure()
-#
-#	    Nw_pixel = self.img_width
-#	    Nh_pixel = self.img_height
-#
-#	    width = numpy.array([i for i in range(Nw_pixel)])
-#
-#            pylab.plot(width, output[Nh_pixel/2.0], color='red', label='Intensity', linewidth=1)
-#
-#            pylab.axis([width[0], width[-1], numpy.amin(output[Nh_pixel/2]), numpy.amax(output[Nh_pixel/2])+10])
-#            #pylab.axis([width[0], width[-1], numpy.amin(output[Nh_pixel/2]), 2030])
-#            pylab.xlabel('Position [pixel]')
-#            pylab.ylabel('Intensity [count]')
-#	    pylab.title('Depth : %d nm' % (x_df))
-#
-#	    pdf_page.savefig(fig_intensity)
-#
-#
-#    
-####################################################################
-##
-##	Rotational Matrix
-##
-####################################################################
-#def trans_mat(v):
-#    """
-#    create rotation matrix for transform arbitrary vector to z-axis.
-#    """
-#    # rot_y on x-z plane
-#    ty = numpy.sign(v[0])*numpy.arccos( v[2]/numpy.sqrt(v[0]**2+v[2]**2) )
-#    ry = rot_y(ty)
-#    vym = numpy.dot(ry,v)
-#    vy = vym.A[0]
-#    
-#    # rot_x on y-z plane
-#    tx = -numpy.sign(vy[1])*numpy.arccos( vy[2]/numpy.sqrt(vy[1]**2+vy[2]**2) )
-#    rx = rot_x(tx)
-#    
-#    return numpy.dot(rx,ry)
-#
-#
-#def rot_x(t):
-#    """
-#    rotation matrix on x-axis
-#    """
-#    rx = numpy.matrix([
-#    [1.0, 0.0, 0.0],
-#    [0.0, numpy.cos(t), numpy.sin(t)],
-#    [0.0,-numpy.sin(t), numpy.cos(t)]
-#    ])
-#
-#    return rx
-#
-#
-#def rot_y(t):
-#    """
-#    rotation matrix on y-axis
-#    """
-#    ry = numpy.matrix([
-#    [ numpy.cos(t), 0.0,-numpy.sin(t)],
-#    [ 0.0, 1.0, 0.0],
-#    [ numpy.sin(t), 0.0, numpy.cos(t)]
-#    ])
-#
-#    return ry
-#
-#
-#def rot_z(t):
-#    """
-#    rotation matrix on z-axis
-#    """
-#    rz = numpy.matrix([
-#    [ numpy.cos(t), numpy.sin(t), 0.0],
-#    [-numpy.sin(t), numpy.cos(t), 0.0],
-#    [ 0.0, 0.0, 1.0]
-#    ])
-#
-#    return rz
-#
-#
+            voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
+            start = self.configs.detector_start_time
+            end = self.configs.detector_end_time
+            exposure_time = self.configs.detector_exposure_time
+            num_timesteps = int(math.ceil((end - start) / exposure_time))
+
+            t0 = self.configs.spatiocyte_data[0][0]
+            t1 = self.configs.spatiocyte_data[1][0]
+            delta_data = t1 - t0
+            delta_time = int(round(exposure_time / delta_data))
+
+            count0 = int(round(start / exposure_time))
+            for count in range(num_timesteps):
+                Nz = int(self.configs.spatiocyte_lengths[0][2] * voxel_size)
+                Ny = int(self.configs.spatiocyte_lengths[0][1] * voxel_size)
+                Nx = int(self.configs.spatiocyte_lengths[0][0] * voxel_size)
+
+                # focal point
+                p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
+
+                count_start = (count - count0) * delta_time
+                count_end = (count - count0 + 1) * delta_time
+
+                frame_data = self.configs.spatiocyte_data[count_start:count_end]
+                for _, data in frame_data:
+                    for data_j in data:
+                        c_id = data_j[0]
+                        pos = self.get_coordinate(c_id)
+                        p_i = numpy.array(pos) * voxel_size
+
+                        # fluorophore axial position
+                        d = self.configs.depth
+                        if self.effects.depth_of_focus_switch is True:
+                            d_f = self.get_depth_of_focus(p_i, p_0)
+                        else:
+                            d_f = abs(p_i[0] - p_0[0])
+                        if d_f < len(d):
+                            fluo_depth = d_f
+                        else:
+                            fluo_depth = d[-1]
+                        depths.add(int(fluo_depth))
+
+            depths = list(depths)
+            if self.use_multiprocess():
+                self.fluo_psf = {}
+                num_processes = min(multiprocessing.cpu_count(), len(depths))
+                n, m = divmod(len(depths), num_processes)
+                chunks = [n + 1 if i < m else n for i in range(num_processes)]
+
+                processes = []
+                start_index = 0
+                for chunk in chunks:
+                    stop_index = start_index + chunk
+                    p, c = multiprocessing.Pipe()
+                    process = multiprocessing.Process(
+                        target=self.get_fluo_psf_process,
+                        args=(depths[start_index:stop_index], c))
+                    processes.append((p, process))
+                    start_index = stop_index
+                for _, process in processes:
+                    process.start()
+                for pipe, process in processes:
+                    self.fluo_psf.update(pipe.recv())
+                    process.join()
+            else:
+                self.fluo_psf = self.get_fluo_psf(depths)
+
+        def get_fluo_psf(self, depths):
+            r = self.configs.radial
+            theta = numpy.linspace(0, 90, 91)
+            z = numpy.linspace(0, +r[-1], len(r))
+            y = numpy.linspace(0, +r[-1], len(r))
+            coordinates = self.polar2cartesian_coordinates(r, theta, z, y)
+
+            psf_t = numpy.ones_like(theta)
+
+            result = {}
+            for depth in depths:
+                psf_r = self.configs.fluorophore_psf[depth]
+
+                psf_polar = numpy.array(map(lambda x: psf_t * x, psf_r))
+
+                result[depth] = self.polar2cartesian(psf_polar, coordinates, (len(r), len(r)))
+            return result
+
+        def get_fluo_psf_process(self, depths, pipe):
+            pipe.send(self.get_fluo_psf(depths))
