@@ -1196,7 +1196,7 @@ class EPIFMVisualizer() :
 
 		return intensity
 
-        def get_signal(self, time, pid, s_index, p_i, p_b, p_0) :
+        def get_signal(self, time, pid, s_index, p_i, p_b, p_0, Norm):
             # set focal point
             x_0, y_0, z_0 = p_0
 
@@ -1227,15 +1227,8 @@ class EPIFMVisualizer() :
                 source_radius = r[-1]
 
             # normalization
-            #life_time  = self.configs.fluorophore_lifetime
             unit_time = 1.0/self.configs.detector_fps
 
-            #if (life_time < frame_time) :
-            #    unit_time = life_time
-            #else :
-            #    unit_time = frame_time
-
-            #radius = self.configs.spatiocyte_VoxelRadius
             radius = 1e-9
 
             unit_area = radius**2
@@ -1243,15 +1236,13 @@ class EPIFMVisualizer() :
 
             # get illumination PSF
             source_psf = norm*self.configs.source_flux[int(source_depth)][int(source_radius)]
-            source_max = norm*self.configs.source_flux[0][0]
 
             # signal conversion : Output Intensity = Physics * PSF (Beam)
-            #Intensity = self.get_intensity(time, pid, source_psf, source_max)
             Ratio = self.effects.conversion_ratio
             Intensity = Ratio * source_psf
 
             # fluorophore axial position
-            if (self.effects.depth_of_focus_switch == True):
+            if self.effects.depth_of_focus_switch is True:
                 d_f = self.get_depth_of_focus(p_i, p_0)
             else:
                 d_f = abs(x_i - x_0)
@@ -1262,7 +1253,7 @@ class EPIFMVisualizer() :
                 fluo_depth = d[-1]
 
             # signal conversion : Output PSF = Intensity * PSF(Fluorophore)
-            signal = Intensity * self.fluo_psf[int(fluo_depth)]
+            signal = Norm * Intensity * self.fluo_psf[int(fluo_depth)]
 
             return signal
 
@@ -1378,98 +1369,77 @@ class EPIFMVisualizer() :
 
 		return cell_pixel
 
+        def overwrite_signal(self, cell, signal, p_i):
+            # particle position
+            x_i, y_i, z_i = p_i
 
+            # z-axis
+            Nz_cell = len(cell)
+            Nz_signal = len(signal)
+            Nr = len(self.configs.radial)
 
-	def overwrite_signal(self, cell, signal, p_i) :
+            z_to = z_i + Nr
+            z_from = z_i - Nr
 
-                # particle position
-                x_i, y_i, z_i = p_i
+            if z_to > Nz_cell:
+                dz_to = z_to - Nz_cell
+                z0_to = int(Nz_cell)
+                zi_to = int(Nz_signal - dz_to)
+            else:
+                dz_to = Nz_cell - (z_i + Nr)
+                z0_to = int(Nz_cell - dz_to)
+                zi_to = int(Nz_signal)
 
-		# z-axis
-		Nz_cell  = len(cell)
-		Nz_signal = len(signal)
-		Nr = len(self.configs.radial)
+            if z_from < 0:
+                dz_from = abs(z_from)
+                z0_from = 0
+                zi_from = int(dz_from)
+            else:
+                dz_from = z_from
+                z0_from = int(dz_from)
+                zi_from = 0
 
-                z_to   = z_i + Nr
-                z_from = z_i - Nr
+            ddz = (z0_to - z0_from) - (zi_to - zi_from)
 
-                if (z_to > Nz_cell) :
+            if ddz > 0:
+                z0_to = z0_to - ddz
+            if ddz < 0:
+                zi_to = zi_to - ddz
 
-                    dz_to = z_to - Nz_cell
+            # y-axis
+            Ny_cell = cell.size/Nz_cell
+            Ny_signal = signal.size/Nz_signal
 
-                    z0_to = int(Nz_cell)
-                    zi_to = int(Nz_signal - dz_to)
+            y_to = y_i + Nr
+            y_from = y_i - Nr
 
-                else :
+            if y_to > Ny_cell:
+                dy_to = y_to - Ny_cell
+                y0_to = int(Ny_cell)
+                yi_to = int(Ny_signal - dy_to)
+            else:
+                dy_to = Ny_cell - (y_i + Nr)
+                y0_to = int(Ny_cell - dy_to)
+                yi_to = int(Ny_signal)
 
-                    dz_to = Nz_cell - (z_i + Nr)
+            if y_from < 0:
+                dy_from = abs(y_from)
+                y0_from = 0
+                yi_from = int(dy_from)
+            else:
+                dy_from = y_from
+                y0_from = int(dy_from)
+                yi_from = 0
 
-                    z0_to = int(Nz_cell - dz_to)
-                    zi_to = int(Nz_signal)
+            ddy = (y0_to - y0_from) - (yi_to - yi_from)
 
-                if (z_from < 0) :
+            if ddy > 0:
+                y0_to = y0_to - ddy
+            if ddy < 0:
+                yi_to = yi_to - ddy
 
-                    dz_from = abs(z_from)
-
-                    z0_from = 0
-                    zi_from = int(dz_from)
-
-                else :
-
-                    dz_from = z_from
-
-                    z0_from = int(dz_from)
-                    zi_from = 0
-
-                ddz = (z0_to - z0_from) - (zi_to - zi_from)
-
-                if (ddz > 0) : z0_to = z0_to - ddz
-                if (ddz < 0) : zi_to = zi_to - ddz
-
-                # y-axis
-                Ny_cell  = cell.size/Nz_cell
-                Ny_signal = signal.size/Nz_signal
-
-		y_to   = y_i + Nr
-		y_from = y_i - Nr
-
-                if (y_to > Ny_cell) :
-
-                    dy_to = y_to - Ny_cell
-
-                    y0_to = int(Ny_cell)
-                    yi_to = int(Ny_signal - dy_to)
-
-                else :
-
-                    dy_to = Ny_cell - (y_i + Nr)
-
-                    y0_to = int(Ny_cell - dy_to)
-                    yi_to = int(Ny_signal)
-
-                if (y_from < 0) :
-
-                    dy_from = abs(y_from)
-
-                    y0_from = 0
-                    yi_from = int(dy_from)
-
-                else :
-
-                    dy_from = y_from
-
-                    y0_from = int(dy_from)
-                    yi_from = 0
-
-		ddy = (y0_to - y0_from) - (yi_to - yi_from)
-
-		if (ddy > 0) : y0_to = y0_to - ddy
-		if (ddy < 0) : yi_to = yi_to - ddy
-
-		# add to cellular plane
-                cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
-
-		#return cell
+            # add to cellular plane
+            cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
         def get_molecule_plane(self, cell, time, data, pid, p_b, p_0):
             voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
@@ -1492,7 +1462,7 @@ class EPIFMVisualizer() :
                     Norm = 2.00/(4.0*numpy.pi)
 
                 # get signal matrix
-                signal = Norm*numpy.array(self.get_signal(time, pid, s_index, p_i, p_b, p_0))
+                signal = self.get_signal(time, pid, s_index, p_i, p_b, p_0, Norm)
 
                 # add signal matrix to image plane
                 self.overwrite_signal(cell, signal, p_i)
