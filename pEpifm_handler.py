@@ -718,22 +718,8 @@ class EPIFMConfigs() :
     def set_efficiency(self, array, index=1):
         if len(array[0]) < 3:
             index = 1
-
-        N = len(self.wave_length)
-        #efficiency = numpy.array([0.0 for i in range(N)])
-        efficiency = [0.0 for i in range(N)]
-
-        for i in range(N):
-            wl = self.wave_length[i]
-
-            for j in range(len(array)):
-                length = float(array[j][0])
-                eff = float(array[j][index])
-
-                if length/wl == 1:
-                    efficiency[i] = eff
-
-        return efficiency
+        d = {int(item[0]): float(item[index]) for item in array}
+        return [d.get(wl, 0.0) for wl in self.wave_length]
 
     def set_Optical_path(self) :
 
