@@ -715,32 +715,25 @@ class EPIFMConfigs() :
                             raise
                         print 'Ignoring error: ', e
 
-
-
-
-    def set_efficiency(self, array, index=1) :
-
-	if (len(array[0]) < 3) : index = 1
+    def set_efficiency(self, array, index=1):
+        if len(array[0]) < 3:
+            index = 1
 
         N = len(self.wave_length)
         #efficiency = numpy.array([0.0 for i in range(N)])
         efficiency = [0.0 for i in range(N)]
 
-        for i in range(N) :
+        for i in range(N):
             wl = self.wave_length[i]
 
-            for j in range(len(array)) :
-
+            for j in range(len(array)):
                 length = float(array[j][0])
                 eff = float(array[j][index])
 
-                if (length/wl == 1) :
+                if length/wl == 1:
                     efficiency[i] = eff
 
-
         return efficiency
-
-
 
     def set_Optical_path(self) :
 
@@ -1257,22 +1250,19 @@ class EPIFMVisualizer() :
 
             return signal
 
+        def get_noise(self, signal):
+            # detector noise
+            Nr = self.configs.detector_readout
+            DC = self.configs.detector_dark_current
+            T  = self.configs.detector_exposure_time
+            Fn = numpy.sqrt(self.configs.detector_excess)
+            M  = self.configs.detector_emgain
 
+            # Noise calculation defined by HAMAMATSU Photonics
+            sigma2 = Fn**2*M**2*(signal + DC*T)+ (Nr)**2
+            noise  = numpy.sqrt(sigma2)
 
-	def get_noise(self, signal) :
-
-		# detector noise
-                Nr = self.configs.detector_readout
-                DC = self.configs.detector_dark_current
-		T  = self.configs.detector_exposure_time
-                Fn = numpy.sqrt(self.configs.detector_excess)
-                M  = self.configs.detector_emgain
-
-                # Noise calculation defined by HAMAMATSU Photonics
-                sigma2 = Fn**2*M**2*(signal + DC*T)+ (Nr)**2
-                noise  = numpy.sqrt(sigma2)
-        
-                return noise
+            return noise
 
 
 
@@ -1666,189 +1656,165 @@ class EPIFMVisualizer() :
 
 		return cell_pixel
 
+        def detector_output(self, cell, bc=None):
+            # Detector Output
+            voxel_radius = self.configs.spatiocyte_VoxelRadius
+            voxel_size = (2.0*voxel_radius)/1e-9
+
+            Nw_pixel = self.img_width
+            Nh_pixel = self.img_height
+
+            Np = int(self.configs.image_scaling*voxel_size)
+
+            # image in nm-scale
+            Nw_camera = Nw_pixel*Np
+            Nh_camera = Nh_pixel*Np
+
+            Nw_cell = len(cell)
+            Nh_cell = len(cell[0])
+
+            if Nw_camera > Nw_cell:
+                w_cam_from = int((Nw_camera - Nw_cell)/2.0)
+                w_cam_to = w_cam_from + Nw_cell
+                w_cel_from = 0
+                w_cel_to = Nw_cell
+            else:
+                w_cam_from = 0
+                w_cam_to = Nw_camera
+                w_cel_from = int((Nw_cell - Nw_camera)/2.0)
+                w_cel_to = w_cel_from + Nw_camera
+
+            if Nh_camera > Nh_cell:
+                h_cam_from = int((Nh_camera - Nh_cell)/2.0)
+                h_cam_to = h_cam_from + Nh_cell
+                h_cel_from = 0
+                h_cel_to = Nh_cell
+            else:
+                h_cam_from = 0
+                h_cam_to = int(Nh_camera)
+                h_cel_from = int((Nh_cell - Nh_camera)/2.0)
+                h_cel_to = h_cel_from + Nh_camera
+
+            # image in nm-scale
+            plane = cell[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
+
+            # convert image in nm-scale to pixel-scale
+            cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
+
+            # Photon distribution
+            for i in range(Nw_cell/Np):
+                for j in range(Nh_cell/Np):
+
+                    # get photons
+                    photons = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
+
+                    if photons > 0:
+
+                        # get crosstalk
+                        if self.effects.detector_crosstalk_switch is True:
+
+                            width = self.effects.detector_crosstalk_width
+
+                            n_i = numpy.random.normal(0, width, photons)
+                            n_j = numpy.random.normal(0, width, photons)
+
+                            #i_bins = int(numpy.amax(n_i) - numpy.amin(n_i))
+                            #j_bins = int(numpy.amax(n_j) - numpy.amin(n_j))
+
+                            smeared_photons, edge_i, edge_j = numpy.histogram2d(n_i, n_j, bins=(24, 24), range=[[-12,12],[-12,12]])
+
+                            # smeared photon distributions
+                            cell_pixel = self.overwrite_smeared(cell_pixel, smeared_photons, i, j)
+
+                        else:
+
+                            cell_pixel[i][j] = photons
+
+            index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
+            QE = self.configs.detector_qeff[index]
+
+            # Photoelectron and ADC count distribution
+            for i in range(Nw_cell/Np):
+                for j in range(Nh_cell/Np):
+
+                    # pixel position
+                    pixel = (i, j)
+
+                    # Detector : Quantum Efficiency
+                    index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
+                    QE = self.configs.detector_qeff[index]
+
+                    # get signal (photoelectrons)
+                    signal = QE*cell_pixel[i][j]
+
+                    # get constant background (photoelectrons)
+                    if self.effects.background_switch is True:
+                        mean = self.effects.background_mean
+                        background = QE*numpy.random.poisson(mean, None)
+                    else:
+                        background = 0
+
+                    # get detector noise (photoelectrons)
+                    noise = self.get_noise(signal + background)
+
+                    # get EM Gain
+                    M  = self.configs.detector_emgain
+
+                    # get signal + background (photoelectrons)
+                    PE = numpy.random.normal(M*(signal + background), noise, None)
+                    #PE = M*(signal + background)
+
+                    # A/D converter : Photoelectrons --> ADC counts
+                    ADC = self.get_ADC_value(pixel, PE)
+                    #ADC = PE
+
+                    if (self.configs.spatiocyte_bc_switch == True) :
+                        cell_pixel[i][j] = ADC*bc[i][j]
+                    else :
+                        cell_pixel[i][j] = ADC
 
 
-	def detector_output(self, cell, bc=None) :
+            # Background (No photon signal)
+            camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel])
 
-		# Detector Output
-		voxel_radius = self.configs.spatiocyte_VoxelRadius
-                voxel_size = (2.0*voxel_radius)/1e-9
+            for i in range(Nw_pixel) :
+                for j in range(Nh_pixel) :
 
-		Nw_pixel = self.img_width
-		Nh_pixel = self.img_height
+                    # set pixel position
+                    pixel = (i, j)
 
-		Np = int(self.configs.image_scaling*voxel_size)
+                    signal, background = 0, 0
+                    noise = self.get_noise(M*(signal + background))
 
-                # image in nm-scale
-		Nw_camera = Nw_pixel*Np
-		Nh_camera = Nh_pixel*Np
-
-		Nw_cell = len(cell)
-		Nh_cell = len(cell[0])
-
-		if (Nw_camera > Nw_cell) :
-
-			w_cam_from = int((Nw_camera - Nw_cell)/2.0)
-			w_cam_to   = w_cam_from + Nw_cell
-                        w_cel_from = 0
-                        w_cel_to   = Nw_cell
-
-		else :
-
-                        w_cam_from = 0
-                        w_cam_to   = Nw_camera
-                        w_cel_from = int((Nw_cell - Nw_camera)/2.0)
-                        w_cel_to   = w_cel_from + Nw_camera
-
-		if (Nh_camera > Nh_cell) :
-
-                        h_cam_from = int((Nh_camera - Nh_cell)/2.0)
-                        h_cam_to   = h_cam_from + Nh_cell
-                        h_cel_from = 0
-                        h_cel_to   = Nh_cell
-
-                else :
-
-                        h_cam_from = 0
-                        h_cam_to   = int(Nh_camera)
-                        h_cel_from = int((Nh_cell - Nh_camera)/2.0)
-                        h_cel_to   = h_cel_from + Nh_camera
+                    PE = numpy.random.normal(M*(signal + background), noise, None)
+                    #PE = M*(signal + background)
+                    ADC = self.get_ADC_value(pixel, PE)
+                    camera_pixel[i][j] = ADC
+                    #camera_pixel[i][j] = PE
 
 
-		# image in nm-scale
-		plane = cell[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
+            w_cam_from = int(w_cam_from/Np)
+            w_cam_to   = int(w_cam_to/Np)
+            h_cam_from = int(h_cam_from/Np)
+            h_cam_to   = int(h_cam_to/Np)
 
+            w_cel_from = int(w_cel_from/Np)
+            w_cel_to   = int(w_cel_to/Np)
+            h_cel_from = int(h_cel_from/Np)
+            h_cel_to   = int(h_cel_to/Np)
 
-		# convert image in nm-scale to pixel-scale
-                cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
+            ddw = (w_cam_to - w_cam_from) - (w_cel_to - w_cel_from)
+            ddh = (h_cam_to - h_cam_from) - (h_cel_to - h_cel_from)
 
-		# Photon distribution
-		for i in range(Nw_cell/Np) :
-		    for j in range(Nh_cell/Np) :
+            if   (ddw > 0) : w_cam_to = w_cam_to - ddw
+            elif (ddw < 0) : w_cel_to = w_cel_to - ddw
 
-			# get photons
-			photons = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
+            if   (ddh > 0) : h_cam_to = h_cam_to - ddh
+            elif (ddh < 0) : h_cel_to = h_cel_to - ddh
 
-			if (photons > 0) :
+            camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
 
-			    # get crosstalk
-			    if (self.effects.detector_crosstalk_switch == True) :
-
-				width = self.effects.detector_crosstalk_width
-
-				n_i = numpy.random.normal(0, width, photons)
-				n_j = numpy.random.normal(0, width, photons)
-
-				#i_bins = int(numpy.amax(n_i) - numpy.amin(n_i))
-				#j_bins = int(numpy.amax(n_j) - numpy.amin(n_j))
-
-				smeared_photons, edge_i, edge_j = numpy.histogram2d(n_i, n_j, bins=(24, 24), range=[[-12,12],[-12,12]])
-
-				# smeared photon distributions
-				cell_pixel = self.overwrite_smeared(cell_pixel, smeared_photons, i, j)
-
-			    else :
-
-				cell_pixel[i][j] = photons
-
-		index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
-		QE = self.configs.detector_qeff[index]
-
-		# Photoelectron and ADC count distribution
-                for i in range(Nw_cell/Np) :
-                    for j in range(Nh_cell/Np) :
-
-			# pixel position
-			pixel = (i, j)
-
-			# Detector : Quantum Efficiency
-			index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
-			QE = self.configs.detector_qeff[index]
-
-                        # get signal (photoelectrons)
-			signal = QE*cell_pixel[i][j]
-
-                        # get constant background (photoelectrons)
-                        if (self.effects.background_switch == True) :
-
-                            mean = self.effects.background_mean
-                            background = QE*numpy.random.poisson(mean, None)
-
-                        else : background = 0
-
-                        # get detector noise (photoelectrons)
-                        noise = self.get_noise(signal + background)
-
-                        # get EM Gain
-                        M  = self.configs.detector_emgain
-
-                        # get signal + background (photoelectrons)
-			PE = numpy.random.normal(M*(signal + background), noise, None)
-                        #PE = M*(signal + background)
-
-			# A/D converter : Photoelectrons --> ADC counts
-			ADC = self.get_ADC_value(pixel, PE)
-			#ADC = PE
-
-			if (self.configs.spatiocyte_bc_switch == True) :
-			    cell_pixel[i][j] = ADC*bc[i][j]
-			else :
-			    cell_pixel[i][j] = ADC
-
-
-                # Background (No photon signal)
-                camera_pixel = numpy.zeros([Nw_pixel, Nh_pixel])
-
-                for i in range(Nw_pixel) :
-                    for j in range(Nh_pixel) :
-
-			# set pixel position
-			pixel = (i, j)
-
-			signal, background = 0, 0
-			noise = self.get_noise(M*(signal + background))
-
-			PE = numpy.random.normal(M*(signal + background), noise, None)
-			#PE = M*(signal + background)
-			ADC = self.get_ADC_value(pixel, PE)
-			camera_pixel[i][j] = ADC
-			#camera_pixel[i][j] = PE
-
-
-		w_cam_from = int(w_cam_from/Np)
-		w_cam_to   = int(w_cam_to/Np)
-		h_cam_from = int(h_cam_from/Np)
-		h_cam_to   = int(h_cam_to/Np)
-
-		w_cel_from = int(w_cel_from/Np)
-		w_cel_to   = int(w_cel_to/Np)
-		h_cel_from = int(h_cel_from/Np)
-		h_cel_to   = int(h_cel_to/Np)
-
-		ddw = (w_cam_to - w_cam_from) - (w_cel_to - w_cel_from)
-		ddh = (h_cam_to - h_cam_from) - (h_cel_to - h_cel_from)
-
-		if   (ddw > 0) : w_cam_to = w_cam_to - ddw
-		elif (ddw < 0) : w_cel_to = w_cel_to - ddw
-
-                if   (ddh > 0) : h_cam_to = h_cam_to - ddh
-                elif (ddh < 0) : h_cel_to = h_cel_to - ddh
-
-		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
-
-
-		return camera_pixel
-
-		#z = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
-		#y = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
-		#Z, Y = numpy.meshgrid(z, y)
-
-		#fig = pylab.figure()
-		#spec_scale = numpy.linspace(numpy.amin(camera_pixel), numpy.amax(camera_pixel), 200, endpoint=True)
-		#pylab.contour(Z, Y,  camera_pixel, spec_scale, linewidth=0.1, color='k')
-		#pylab.contourf(Z, Y, camera_pixel, cmap=pylab.cm.jet)
-		#pylab.show()
-		#exit()
+            return camera_pixel
 
 
 
@@ -1890,18 +1856,15 @@ class EPIFMVisualizer() :
             self.configs.detector_ADC_offset = offset.reshape([Nw_pixel, Nh_pixel])
             self.configs.detector_ADC_gain = gain.reshape([Nw_pixel, Nh_pixel])
 
+        def get_ADC_value(self, pixel, photo_electron):
+            # pixel position
+            i, j = pixel
 
+            # check non-linearity
+            Q_max = self.configs.detector_ADC_satQ
 
-	def get_ADC_value(self, pixel, photo_electron) :
-
-	    # pixel position
-	    i, j = pixel
-
-	    # check non-linearity
-	    Q_max = self.configs.detector_ADC_satQ
-
-	    if (photo_electron > Q_max) :
-		photo_electron = Q_max
+            if photo_electron > Q_max:
+                photo_electron = Q_max
 
             # convert photoelectron to ADC counts (Grayscale)
             k = self.configs.detector_ADC_gain[i][j]
@@ -1910,15 +1873,13 @@ class EPIFMVisualizer() :
 
             ADC = photo_electron/k + ADC0
 
-	    if (ADC > ADC_max) :
-		ADC = ADC_max
+            if ADC > ADC_max:
+                ADC = ADC_max
 
-	    if (ADC < 0) :
-		ADC = 0
+            if ADC < 0:
+                ADC = 0
 
-	    return int(ADC)
-
-
+            return int(ADC)
 
         def make_movie(self) :
             """
