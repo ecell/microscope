@@ -879,43 +879,31 @@ class EPIFMConfigs() :
 
 	self.fluorophore_psf = psf_fl
 
+    def get_PSF_fluorophore(self, r, z, wave_length):
+        # set Numerical Appature
+        NA = self.objective_NA
+        N = 80
 
-    def get_PSF_fluorophore(self, r, z, wave_length) :
+        # set alpha and gamma consts
+        k = 2.0*numpy.pi/wave_length
+        alpha = k*NA
+        gamma = k*(NA/2)**2
 
-	# set Numerical Appature
-	NA = self.objective_NA
-	N = 80
-
-	# set alpha and gamma consts
-	k = 2.0*numpy.pi/wave_length
-	alpha = k*NA
-	gamma = k*(NA/2)**2
-
-	# set rho parameters
+        # set rho parameters
         drho = 1.0/N
         rho = numpy.array([(i+1)*drho for i in range(N)])
 
-        J0 = numpy.array(map(lambda x : j0(x*alpha*rho), r))
-        Y  = numpy.array(map(lambda x : 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
-#	J0 = numpy.array(map(lambda y : map(lambda x : j0(x*y*rho), r), alpha))
-#	Y  = numpy.array(map(lambda y : map(lambda x : 2*numpy.exp(-2*1.j*x*y*rho**2)*rho*drho, z), gamma))
+        J0 = numpy.array(map(lambda x: j0(x*alpha*rho), r))
+        Y = numpy.array(
+            map(lambda x: 2*numpy.exp(-2*1.j*x*gamma*rho**2)*rho*drho, z))
 
-        I  = numpy.array(map(lambda x : x*J0, Y))
+        I = numpy.array(map(lambda x: x*J0, Y))
         I_sum = I.sum(axis=2)
 
-        psf = numpy.array(map(lambda x : abs(x)**2, I_sum))
-	Norm = numpy.amax(psf)
+        psf = numpy.array(map(lambda x: abs(x)**2, I_sum))
+        Norm = numpy.amax(psf)
 
-#	for i in range(len(wave_length)) :
-#
-#	    I  = numpy.array(map(lambda x : x*J0[i], Y[i]))
-#	    I_sum = I.sum(axis=2)
-#	    I_abs = map(lambda x : abs(x)**2, I_sum)
-#
-#	    if (i > 0) : psf += I_abs
-#	    else : psf = I_abs
-
-	return psf/Norm
+        return psf/Norm
 
 
 
