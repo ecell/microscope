@@ -1499,16 +1499,9 @@ class EPIFMVisualizer() :
 
             delta_data = t1 - t0
             delta_time = int(round(exposure_time/delta_data))
-            #delta_time = int(round(exposure_time/frame_interval))
-
-            # create frame data composed by frame element data
             count0 = int(round(detector_start_time / exposure_time))
 
-            # initialize Physical effects
-            #length0 = len(self.configs.spatiocyte_data[0][1])
-            #self.effects.set_states(t0, length0)
-
-            for count in range(start_count, stop_count):
+            for count in range(start_count + count0, stop_count + count0):
                 # set image file name
                 image_file_name = os.path.join(
                     self.configs.movie_image_file_dir,
@@ -1519,8 +1512,8 @@ class EPIFMVisualizer() :
                 # define cell
                 cell = numpy.zeros(shape=(Nz, Ny))
 
-                count_start = (count - count0)*delta_time
-                count_end = (count - count0 + 1)*delta_time
+                count_start = (count - count0) * delta_time
+                count_end = (count - count0 + 1) * delta_time
 
                 frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
@@ -1897,7 +1890,6 @@ class EPIFMVisualizer() :
             delta_data = t1 - t0
             delta_time = int(round(exposure_time / delta_data))
 
-            count0 = int(round(start / exposure_time))
             for count in range(num_timesteps):
                 Nz = int(self.configs.spatiocyte_lengths[0][2] * voxel_size)
                 Ny = int(self.configs.spatiocyte_lengths[0][1] * voxel_size)
@@ -1906,8 +1898,8 @@ class EPIFMVisualizer() :
                 # focal point
                 p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
 
-                count_start = (count - count0) * delta_time
-                count_end = (count - count0 + 1) * delta_time
+                count_start = count * delta_time
+                count_end = (count + 1) * delta_time
 
                 frame_data = self.configs.spatiocyte_data[count_start:count_end]
                 for _, data in frame_data:

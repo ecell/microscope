@@ -25,7 +25,7 @@ def test_tirfm(t0, t1):
     tirfm.set_Detector(detector='EMCCD', zoom=1, emgain=300,
                        focal_point=(0.0, 0.5, 0.5),
                        start_time=t0, end_time=t1,
-                       fps=1.0/3.3e-3, exposure_time=3.3e-3)
+                       fps=1.0/3.3e-3, exposure_time=33e-3)
     tirfm.set_Movie(image_file_dir='./images',
                     movie_filename='./movies/tirfm_movie.mp4')
     tirfm.set_DataFile(['./data/lattice/test_model_11.h5'])
