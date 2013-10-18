@@ -7,18 +7,11 @@
 	  -- Selected Fluorophore (Airy)
 	  -- Gaussian Point Spreading Function
 	Light Source
-          -- Selected Light Source
-          -- Gaussian Beam
-	Porlarizer
-	Mirror Position
 	Excitation Filter
-	Objective
         Dichroic Mirror
 	Emission Filter
-	Scan Lens
-	Tube Lens
-	Pinhole
-	Detector (CCD, CMOS, PMT, ADP, ...)
+	Pinhole/Slit
+	Detector
 
 """
 
@@ -28,20 +21,12 @@ import numpy
 # General 
 #-----------------------------
 ignore_open_errors = False
+electron_charge = 1.602e-19 # C
 
 radial = numpy.array([1.0*i for i in range(1000)])
 depth  = numpy.array([1.0*i for i in range(1000)])
 wave_length = numpy.array([i for i in range(300, 1000)])
 wave_number = numpy.array([2.*numpy.pi/wave_length[i] for i in range(len(wave_length))])
-
-image_scaling = 1.0
-image_magnification = 1.0
-
-#-----------------------------
-# Particles list
-#-----------------------------
-particles_index = None
-particles_list  = None
 
 #-----------------------------
 # Fluorophore
@@ -64,54 +49,28 @@ psf_width  = (200, 200)	# Gaussian function (radial width, lateral width) [nm]
 psf_cutoff = (400, 100)	# cutoff range (radius, depth)
 psf_file_name_format = 'psf_%04d.png'	# Image file name
 
-penetration_depth = 200 # nm
-
 #-----------------------------
-# Incident Beam Condition
+# Illumination
 #----------------------------- 
 source_switch  = False       
 source_type = 'LASER'
-source_wavemode = 'TEM00'
-source_M2factor = 1.0
 source_wavelength = 600. # nm
 source_power = 20e-3 # W
-source_radius = 0.32e-3 # m
-source_intensity  = 3.108e-3 # W/cm^2
-source_divergence = numpy.array([0.0 for i in range(len(depth))])
+source_radius = 20e-6 # m
+source_depth  = 20e-6 # m
 source_flux = numpy.array([[0.0 for i in range(len(radial))] for j in range(len(depth))])
 
 #-----------------------------
-# Beam Expander
+# Resolution/Magnification
 #-----------------------------
-expander_type = 'Keplerian' # Keplerian or Gallilean
-expander_pinhole_radius = 23e-3 # m
-expander_focal_length1 = 5e-3  # m
-expander_focal_length2 = 25e-3 # m
-
-#-----------------------------
-# Mirror
-#-----------------------------
-mirror_position = 0.0
+image_resolution = 16e-8
+image_magnification = 100
 
 #-----------------------------
 # Excitation Filter
 #-----------------------------
 excitation_switch = False
 excitation_eff = numpy.array([0.0 for i in range(len(wave_length))])
-
-#-----------------------------
-# Objective
-#-----------------------------
-objective_switch = False
-objective_NA  = 1.45
-objective_Ng  = 1.52
-objective_Nm  = 1.37
-objective_focal_length = 1.9e-3 # m
-objective_efficiency   = 0.90
-objective_sin_alpha    = None
-objective_sin_critical = None
-objective_eff = numpy.array([0.0 for i in range(len(wave_length))])
-objective_glassthickness = 3.0e-3 # m
 
 #-----------------------------
 # Dichroic Mirror
@@ -126,27 +85,17 @@ emission_switch = False
 emission_eff = numpy.array([0.0 for i in range(len(wave_length))])
 
 #-----------------------------
-# Tube Lens
-#-----------------------------
-tubelens_switch = False
-tubelens_focal_length1 = 160e-3 # m
-tubelens_focal_length2 = 200e-3 # m
-
-#-----------------------------
-# Scan Lens
-#-----------------------------
-tubelens_switch = False
-tubelens_focal_length = 50e-3 # m
-
-#-----------------------------
 # Pinhole
 #-----------------------------
-pinholelens_switch = False
-pinholelens_focal_length = 50e-3 # m
-pinholelens_radius = 23e-6 # m
+pinhole_radius = 16e-6 # m
 
 #-----------------------------
-# Detector (CCD camera, PMT, ADP, .... etc)
+# Slit
+#-----------------------------
+slit_size = 37e-6 # m
+
+#-----------------------------
+# Detector
 #-----------------------------
 detector_switch = False
 detector_type = 'Perfect'
@@ -156,19 +105,11 @@ detector_image_size   = (512, 512)        # detector image size in pixels
 detector_pixel_length = 16.0e-6           # Pixel size in micro-m scale
 detector_zoom = 1.0                       # Zoom Zoom-in > 1.0 > Zoom-out
 detector_gain = 1.0                       # Zoom Zoom-in > 1.0 > Zoom-out
-detector_start_time = 0.0
-detector_end_time = None
 detector_exposure_time  = 0.033
-detector_fps = 1 #5-30
-detector_ADC_satQ = 370000.
-detector_ADC_maxQ = 600000.
-detector_ADC_bit   = 16
-detector_ADC_gain = 5.8
-detector_fpn_type = None
-detector_fpn_offset = 2000
-detector_fpn_noise  = 10
+detector_bandwidth = 0
+detector_mode = 'Pulse'
 detector_readout = 0.0
-detector_dark_current = 0.0
+detector_dark_current = 1.0e-12
 detector_excess = 1.0
 detector_emgain = 1.0
 detector_background = 0.0
@@ -179,25 +120,28 @@ detector_qeff  = numpy.array([1.0 for i in range(len(wave_length))])
 #detector_red   = numpy.array([1.0 for i in range(len(wave_length))])
 
 #-----------------------------
-# Image/Movie
+# A/D Converter
 #-----------------------------
-movie_background_color = (0, 0, 0)
-movie_image_file_dir = "./images"
-movie_image_file_name_format = 'image_%07d.png'
-#movie_image_file_name_format = 'image_%07d.tiff'
-movie_cleanup_image_file_dir = False
-movie_filename = "./movies/movie.mp4"
+ADConverter_fullwell = 370000.
+ADConverter_bit  = 16
+ADConverter_gain = 5.8
+ADConverter_offset = 2000
+ADConverter_fpn_type = None
+ADConverter_fpn_count = 0.0
 
 #-----------------------------
-# Output/Data
+# Image
 #-----------------------------
-output_file_dir = "./output"
-output_file_name_format = 'output_%07d.dat' # Must be compatible with FFmpeg's input-file notation
-#movie_image_file_name_format = 'image_%04d.tiff' # Must be compatible with FFmpeg's input-file notation
+image_file_dir = "./images"
+image_file_name_format = 'image_%07d.png'
+image_file_cleanup_dir = False
 
 #-----------------------------
 # Spatiocyte
 #-----------------------------
+spatiocyte_start_time = 0
+spatiocyte_start_end  = 1
+spatiocyte_interval = 1e-3
 spatiocyte_data = []
 spatiocyte_observable = []
 

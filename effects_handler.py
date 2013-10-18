@@ -10,7 +10,7 @@ import tempfile
 import math
 import operator
 import random
-import h5py
+#import h5py
 import ctypes
 import multiprocessing
 
@@ -90,20 +90,6 @@ class PhysicalEffects() :
         self._set_data('background_mean', mean)
 
         print '\tMean = ', self.background_mean, 'photons'
-
-
-
-    def set_DepthOfFocus(self, a = None,
-                        b = None) :
-
-        print '--- Depth of Focus:'
-
-        self._set_data('depth_of_focus_switch', True)
-        self._set_data('depth_of_focus_a', a)
-        self._set_data('depth_of_focus_b', b)
-
-        print '\t1st depth const = ', self.depth_of_focus_a
-        print '\t2nd depth const = ', self.depth_of_focus_b, 'nm'
 
 
 

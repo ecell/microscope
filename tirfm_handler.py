@@ -11,33 +11,28 @@ import time
 import math
 import operator
 import random
-import h5py
+#import h5py
 
-#import pylab
 import scipy
 import numpy
 
 import parameter_configs
-#from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
-from pEpifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
+from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
 from effects_handler import PhysicalEffects
 
 from scipy.special import j0
 from scipy.misc    import toimage
 
-#from matplotlib.backends.backend_pdf import PdfPages
-
-IMAGE_SIZE_LIMIT=3000
-
 
 class TIRFMConfigs(EPIFMConfigs) :
 
     '''
+
     TIRFM configration
 
-	EPIFM configuration
+	Evanescent Field
 	    +
-	Mirror position (> critical angle )
+	Detector : EMCCD/CMOS
     '''
 
     def __init__(self, user_configs_dict = None):
@@ -65,102 +60,72 @@ class TIRFMConfigs(EPIFMConfigs) :
 
 
 
-    def set_EvanescentField(self, depth = None) :
-
-        print '--- Evanescent Field :'
-        print '\tPenetration Depth = ', depth, 'nm'
-
-        self.penetration_depth = depth
-
-
-
     def set_Illumination_path(self) :
 
-        r = self.radial
-        z = self.depth
+        #r = self.radial
+        #d = self.depth
+	r = numpy.linspace(0, 20000, 20001)
+	d = numpy.linspace(0, 20000, 20001)
 
         # (plank const) * (speed of light) [joules meter]
         hc = 2.00e-25
 
-        # (1) light source
-        M2 = self.source_M2factor
-        w_source = self.source_radius
+	# Illumination : Assume that uniform illumination (No gaussian)
+        w_0 = self.source_radius
 
-        # power [joules/sec]
+	# power [joules/sec]
         P_0 = self.source_power
+
+	# illumination area [m^2]
+	A_0 = numpy.pi*w_0**2
 
         # single photon energy
         wave_length = self.source_wavelength*1e-9
         E_wl = hc/wave_length
 
-        # photon per sec [photons/sec]
+	# photon flux [photons/sec]
         N_0 = P_0/E_wl
 
-        # (2) beam expander
-#        f_1 = self.expander_focal_length1
-#        f_2 = self.expander_focal_length2
+	################################################################
+	# set for Evanescent field
+        ################################################################
 
-#        w_p = self.expander_pinhole_radius
+	# incident beam angle
+	theta_in = self.source_angle
 
-#        w_BE = (f_2/f_1)*w_source
+	sin2 = numpy.sin(theta_in)**2
+	cos2 = numpy.cos(theta_in)**2
 
-        # (3) scan and tube lens
-#        f_s  = self.scanlens_focal_length
-#        f_t1 = self.tubelens_focal_length1
+	# index refraction
+	n_1 = 1.46 # fused silica
+	n_2 = 1.33 # water (objective : water immersion)
+	n2  = (n_2/n_1)**2
 
-#        w_tube = (f_t1/f_s)*w_BE
+	# incident beam amplitude
+	theta = numpy.pi/4.0
+	A2_Is = N0/A_0*numpy.cos(theta)
+	A2_Ip = N0/A_0*numpy.sin(theta)
 
-        # (4) objective
-#        f_obj = self.objective_focal_length
+	# Assume that the s-polarized direction is parallel to y-axis
+	A2_z = A2_Ip*(4*cos2*(sin2 - n2)/(n2**2*cos2 + sin2 - n2))
+	A2_y = A2_Is*(4*cos2/(1- n2))
+	A2_x = A2_Ip*(4*cos2*sin2/(n2**2*cos2 + sin2 - n2))
+	A2_T = A2_x + A2_y + A2_z
 
-        # Rayleigh range
-#        z_R = numpy.pi*w_tube**2/wave_length
+        I_r = numpy.array(map(lambda x : A2_T, r))
 
-        # object distance to maximize image distance
-#        s_obj = f_obj + z_R
-#        w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
+	# evanescent field depth (alpha = 1/depth)
+	if (sin2/n > 1) : 
+	    alpha = (4.0*numpy.pi/wave_length)*numpy.sqrt(sin2/n2 - 1)
+	    I_d = numpy.exp(-alpha*d*1e-9)
 
+	else :
+	    I_d = numpy.array(map(lambda x : 1.00, d))
 
-        # (I) Beam Flux [photons/(m^2 sec)] (r <--> z)
-#        w_r = w_obj*numpy.sqrt(1 + ((wave_length*r*1e-9)/(numpy.pi*w_obj**2))**2)
-#        N_r = N_0*(1 - numpy.exp(-2*(w_p/w_r)**2))
+	# photon flux density [photon/(sec m^2)]
+        self.source_flux = numpy.array(map(lambda x : I_r*x, I_d))
 
-        #bsf = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(z*1e-9/y)**2), N_r, w_r))
-        #flux = numpy.array(map(lambda x : (2*N_r)/(numpy.pi*w_r**2)*numpy.exp(-2*(x*1e-9/w_r)**2), z))
-        flux = numpy.array(map(lambda x : (2*N_0)/(numpy.pi*w_source**2), z))
-
-        # (II) Penetration Depth Function
-#        n1 = self.objective_Ng
-#        n2 = self.objective_Nm
-#
-#        length = math.sqrt(1 - self.objective_sin_max**2)/self.objective_sin_max
-#        tan_th = self.mirror_position/length
-#        sin2   = tan_th/math.sqrt(1 + tan_th**2)
-#
-#        ref = n1**2*sin2 - n2**2
-#
-#        if (ref > 0) :
-#
-#            penetration_depth = wave_length/(4*math.pi*math.sqrt(ref))/1e-9
-#
-#            print '--- TIRF Configuration : '
-#
-#        else :
-#
-#            penetration_depth = float('inf')
-#
-#            print '--- EPIF Configuration : '
-#
-#        print '\tPenetration Depth = ', penetration_depth, 'nm'
-
-        func_r  = numpy.array(map(lambda x : 1.00, r))
-        func_z  = numpy.exp(-z/self.penetration_depth)
-        func_pd = numpy.array(map(lambda x : func_r*x, func_z))
-
-        # Beam flux
-        self.source_flux = flux*func_pd
-
-	print 'Photon Flux (Surface) :', self.source_flux[0][0]
+	print 'Photon Flux Density (Max) :', self.source_flux[0][0]
 
 
 
@@ -181,20 +146,11 @@ class TIRFMVisualizer(EPIFMVisualizer) :
 		"""
 		Check and create the folder for image file.
 		"""
-		if not os.path.exists(self.configs.movie_image_file_dir):
-		    os.makedirs(self.configs.movie_image_file_dir)
+		if not os.path.exists(self.configs.image_file_dir):
+		    os.makedirs(self.configs.image_file_dir)
 		#else:
 		#    for file in os.listdir(self.configs.movie_image_file_dir):
-	#		os.remove(os.path.join(self.configs.movie_image_file_dir, file))
-
-                """
-                Image Size and Boundary
-                """
-                self.img_width  = int(self.configs.detector_image_size[0])
-                self.img_height = int(self.configs.detector_image_size[1])
-
-                if self.img_width > IMAGE_SIZE_LIMIT or self.img_height > IMAGE_SIZE_LIMIT :
-                        raise VisualizerErrror('Image size is bigger than the limit size')
+		#	os.remove(os.path.join(self.configs.movie_image_file_dir, file))
 
                 """
                 set optical path from source to detector

@@ -22,13 +22,6 @@ background_mean = 0
 background_width = 0
 
 #-----------------------------
-# Depth of focus
-#-----------------------------
-depth_of_focus_switch = False
-depth_of_focus_a = 0.0
-depth_of_focus_b = 0.0
-
-#-----------------------------
 # Detectors Crosstalk
 #-----------------------------
 detector_crosstalk_switch = False

@@ -11,21 +11,22 @@ import time
 import math
 import operator
 import random
-import h5py
+#import h5py
+import ctypes
+import multiprocessing
 
-import pylab
 import scipy
 import numpy
 
 import parameter_configs
+import parameter_effects
+from effects_handler import PhysicalEffects
+
 from epifm_handler import VisualizerError, EPIFMConfigs, EPIFMVisualizer
 
+from time import sleep
 from scipy.special import j0
 from scipy.misc    import toimage
-
-from matplotlib.backends.backend_pdf import PdfPages
-
-IMAGE_SIZE_LIMIT=3000
 
 
 class FCSConfigs(EPIFMConfigs) :
@@ -33,10 +34,11 @@ class FCSConfigs(EPIFMConfigs) :
     '''
     FCS configuration
 
-	EPIFM configuration
+	Point-like Gaussian Beam
 	    +
-	Pinhole Lens
-	Detector : PMT, ADP ... etc
+	Pinhole
+	    +
+	Detector : PMT
     '''
 
     def __init__(self, user_configs_dict = None):
@@ -63,71 +65,52 @@ class FCSConfigs(EPIFMConfigs) :
 
 
 
-    def set_PinholeLens(self, radius = None,
-                        focal_length = None) :
+    def set_Pinhole(self, radius = None) :
 
-        print '--- Pinhole Lens :'
+        print '--- Pinhole :'
 
-        self._set_data('pinholelens_switch', True)
-        self._set_data('pinholelens_radius', radius)
-        self._set_data('pinholelens_focal_length', focal_length)
+        self._set_data('pinhole_radius', radius)
 
-        print '\tPinhole Radius = ', self.pinholelens_radius, 'm'
-        print '\tFocal Length = ', self.pinholelens_focal_length, 'm'
+        print '\tPinhole Radius = ', self.pinhole_radius, 'm'
+
 
 
     def set_Illumination_path(self) :
 
-        r = self.radial
-        z = self.depth
+        #r = self.radial
+        #d = self.depth
+	r = numpy.linspace(0, 20000, 20001)
+	d = numpy.linspace(0, 20000, 20001)
 
         # (plank const) * (speed of light) [joules meter]
         hc = 2.00e-25
 
-        # (1) light source
-        M2  = self.source_M2factor
-        w_source = self.source_radius
+	# Illumination
+        w_0 = self.source_radius
 
-        # power [joules/sec]
+	# power [joules/sec]
         P_0 = self.source_power
+
+	# illumination area [m^2]
+	A_0 = numpy.pi*w_0**2
 
         # single photon energy
         wave_length = self.source_wavelength*1e-9
         E_wl = hc/wave_length
 
-        # photon per sec [photons/sec]
+	# photon flux [photons/sec]
         N_0 = P_0/E_wl
 
-        # (2) beam expander
-        f_1 = self.expander_focal_length1
-        f_2 = self.expander_focal_length2
-
-        w_p = self.expander_pinhole_radius
-
-        w_BE = (f_2/f_1)*w_source
-
-        # (3) scan and tube lens
-        f_s = self.scanlens_focal_length
-        f_t = self.tubelens_focal_length1
-
-        w_tube = (f_t/f_s)*w_BE
-
-        # (4) objective
-        f_obj = self.objective_focal_length
-
-        # Rayleigh range
-        z_R = numpy.pi*w_tube**2/wave_length
-
-        # object distance to maximize image distance
-        s_obj = f_obj + z_R
-        w_obj = w_tube/numpy.sqrt((1 - s_obj/f_obj)**2 + (z_R/f_obj)**2)
-
+	# Rayleigh range
+        z_R = numpy.pi*w_0**2/wave_length
 
         # Beam Flux [photons/(m^2 sec)]
-        w_z = w_obj*numpy.sqrt(1 + ((wave_length*z*1e-9)/(numpy.pi*w_obj**2))**2)
-        N_z = N_0*(1 - numpy.exp(-2*(w_p/w_z)**2))
+        w_z = w_0*numpy.sqrt(1 + ((wave_length*d*1e-9)/(numpy.pi*w_0**2))**2)
 
-        self.source_flux = numpy.array(map(lambda x, y : (2*x)/(numpy.pi*y**2)*numpy.exp(-2*(r*1e-9/y)**2), N_z, w_z))
+	# photon flux density [photon/(sec m^2)]
+        self.source_flux = numpy.array(map(lambda x : 2*N_0/(numpy.pi*x**2)*numpy.exp(-2*(r*1e-9/x)**2), w_z))
+
+	print 'Photon FLux Density (Max) :', numpy.amax(self.source_flux)
 
 
 
@@ -135,37 +118,26 @@ class FCSConfigs(EPIFMConfigs) :
 
         wave_length = self.psf_wavelength*1e-9
 
-        # Magnification
-        Mag = 1.0
+	# Magnification
+	Mag = self.image_magnification
 
-        # (2) objective lens
-        f_obj = self.objective_focal_length
-
-        # (3) tube lens
-        f_t = self.tubelens_focal_length1
-
-        # Magnification : Obj to tube lens
-        Mag = (f_t/f_obj)*Mag
-
-        # (4) scan lens
-        f_s = self.scanlens_focal_length
-
-        # (5) pinhole lens in front of detector
-        f_p = self.pinholelens_focal_length
-
-        # Magnification : scan to pinhole lens
-        Mag = (f_p/f_s)*Mag
-
-        # set image scaling factor
+	# set image scaling factor
         voxel_radius = self.spatiocyte_VoxelRadius
 
-        view = (2.0*self.pinholelens_radius)/(2.0*voxel_radius)
-        zoom = self.detector_zoom
+	# set zoom
+	zoom = self.detector_zoom
 
-        self.image_scaling = view/(Mag*zoom)
+	# set pinhole pixel length
+	pixel_length = (2.0*self.pinhole_radius)/(Mag*zoom)
+
+	self.image_resolution = pixel_length
+	self.image_scaling = pixel_length/(2.0*voxel_radius)
+
+	print 'Resolution :', self.image_resolution, 'm'
+	print 'Scaling :', self.image_scaling
 
         # Detector PSF
-        self.set_PSF_detector(Mag)
+        self.set_PSF_detector()
 
 
 
@@ -176,37 +148,22 @@ class FCSVisualizer(EPIFMVisualizer) :
 	FCS Visualization class of e-cell simulator
 	'''
 
-	def __init__(self, configs=FCSConfigs(), output_file=None) :
+	def __init__(self, configs=EPIFMConfigs(), effects=PhysicalEffects()) :
 
-		assert isinstance(configs, FCSConfigs)
+		assert isinstance(configs, EPIFMConfigs)
 		self.configs = configs
-		self.output_file = output_file
+
+                assert isinstance(effects, PhysicalEffects)
+                self.effects = effects
 
 		"""
 		Check and create the folder for image file.
 		"""
-		if not os.path.exists(self.configs.movie_image_file_dir):
-		    os.makedirs(self.configs.movie_image_file_dir)
-		else:
-		    for file in os.listdir(self.configs.movie_image_file_dir):
-			os.remove(os.path.join(self.configs.movie_image_file_dir, file))
-
-                """
-                set Secondary Image Size and Boundary
-                """
-                self.img_width  = int(self.configs.detector_image_size[0])
-                self.img_height = int(self.configs.detector_image_size[1])
-
-                if self.img_width > IMAGE_SIZE_LIMIT or self.img_height > IMAGE_SIZE_LIMIT :
-                        raise VisualizerErrror('Image size is bigger than the limit size')
-
-
-                """
-		Output Data
-                """
-                with open(self.output_file, 'w') as output :
-                    output.write('#time\tintensity\t\n')
-                    output.write('\n')
+		if not os.path.exists(self.configs.image_file_dir):
+		    os.makedirs(self.configs.image_file_dir)
+		#else:
+		#    for file in os.listdir(self.configs.image_file_dir):
+		#	os.remove(os.path.join(self.configs.image_file_dir, file))
 
                 """
                 Optical Path
@@ -215,268 +172,327 @@ class FCSVisualizer(EPIFMVisualizer) :
 
 
 
-        def output_frames(self, num_div=1) :
+	def get_noise_analog(self, current) :
+
+		# detector noise in current unit (Ampere)
+                NA = self.configs.detector_readout
+                Id = self.configs.detector_dark_current
+                F  = self.configs.detector_excess
+                B  = self.configs.detector_bandwidth
+                M  = self.configs.detector_emgain
+		e  = self.configs.electron_charge
+
+                # Ref from Hamamatsu PMT technical guide
+                sigma2 = 2*e*B*F*(M**2)*(current + 2*Id/M) + (NA)**2
+                noise  = numpy.sqrt(sigma2)
+        
+                return noise
+
+
+
+	def get_noise_pulse(self, signal_rate) :
+
+		# detector noise in count rate unit (#/sec)
+                Nr = self.configs.detector_readout
+                Id = self.configs.detector_dark_current
+                M  = self.configs.detector_emgain
+		e  = self.configs.electron_charge
+
+		# dark count rate (cathode)
+		D  = Id/M/e
+
+		# observational time
+                B  = self.configs.detector_bandwidth
+		T = 1/(2*B)
+
+                # Ref from Hamamatsu PMT technical guide
+                sigma2 = (signal_rate + 2*D)/T + (Nr)**2
+                noise  = numpy.sqrt(sigma2)
+        
+                return noise
+
+
+
+	def get_molecule_plane(self, cell, time, data, pid, p_b, p_0) :
+
+		voxel_size = (2.0*self.configs.spatiocyte_VoxelRadius)/1e-9
+
+		# get beam position
+		x_b, y_b, z_b = p_b
+
+                # cutoff randius
+		PH_radius = int(self.configs.image_scaling*voxel_size/2)
+		cut_off = 5*PH_radius
+
+		# particles coordinate, species and lattice IDs
+                c_id, s_id, l_id = data
+
+		sid_array = numpy.array(self.configs.spatiocyte_species_id)
+		s_index = (numpy.abs(sid_array - int(s_id))).argmin()
+
+		if self.configs.spatiocyte_observables[s_index] is True :
+
+		    # Normalization
+		    unit_area = (1e-9)**2
+		    norm = unit_area/(4.0*numpy.pi)
+
+		    # particles coordinate in real(nm) scale
+                    #pos = self.get_coordinate(c_id)
+                    #p_i = numpy.array(pos)*voxel_size
+                    p_i = self.get_coordinate(c_id)
+
+                    #p_i = p_b
+		    #D = 100e-12
+		    #p_i[2] = p_b[2] + (numpy.sqrt(6*D*time) - numpy.sqrt(6*D*0.04))/1e-9
+
+		    # get particle position
+		    x_i, y_i, z_i = p_i
+
+		    if ((y_i - y_b)**2 + (z_i - z_b)**2 < cut_off**2) :
+
+        	    	# get signal matrix
+        	    	signal = self.get_signal(time, pid, s_index, p_i, p_b, p_0, norm)
+
+			#print pid, p_i, numpy.amax(signal)
+			# add signal matrix to image plane
+        	    	self.overwrite_signal(cell, signal, p_i)
+
+
+
+	def output_frames(self, num_div=1):
+
+	    # set Fluorophores PSF
+	    self.set_fluo_psf()
+
+            start = self.configs.spatiocyte_start_time
+            end = self.configs.spatiocyte_end_time
+
+	    bandwidth = self.configs.detector_bandwidth
+            exposure_time = 1/(2*bandwidth)
+            num_timesteps = int(math.ceil((end - start) / exposure_time))
+
+	    index0  = int(round(start/exposure_time))
+
+            envname = 'ECELL_MICROSCOPE_SINGLE_PROCESS'
+
+            if envname in os.environ and os.environ[envname]:
+                self.output_frames_each_process(index0, num_timesteps)
+            else:
+                num_processes = multiprocessing.cpu_count()
+                n, m = divmod(num_timesteps, num_processes)
+                # when 10 tasks is distributed to 4 processes,
+                # number of tasks of each process must be [3, 3, 2, 2]
+                chunks = [n + 1 if i < m else n for i in range(num_processes)]
+
+                processes = []
+                start_index = index0
+
+                for chunk in chunks:
+                    stop_index = start_index + chunk
+                    process = multiprocessing.Process(
+                        target=self.output_frames_each_process,
+                        args=(start_index, stop_index))
+                    process.start()
+                    processes.append(process)
+                    start_index = stop_index
+
+                for process in processes:
+                    process.join()
+
+
+
+        def output_frames_each_process(self, start_count, stop_count):
 
                 # define observational image plane in nm-scale
                 voxel_size = 2.0*self.configs.spatiocyte_VoxelRadius/1e-9
 
-                Nz = int(self.configs.spatiocyte_lengths[0][2]*voxel_size)
-                Ny = int(self.configs.spatiocyte_lengths[0][1]*voxel_size)
-                Nx = int(self.configs.spatiocyte_lengths[0][0]*voxel_size)
-
-                z = numpy.linspace(0, Nz-1, Nz)
-                y = numpy.linspace(0, Ny-1, Ny)
-                Z, Y = numpy.meshgrid(z, y)
+                Nz = int(self.configs.spatiocyte_lengths[2] * voxel_size)
+                Ny = int(self.configs.spatiocyte_lengths[1] * voxel_size)
+                Nx = int(self.configs.spatiocyte_lengths[0] * voxel_size)
 
                 # focal point
                 p_0 = numpy.array([Nx, Ny, Nz])*self.configs.detector_focal_point
 
-                # beam position : Assuming beam position = focal point for temporary
+                # beam position : focal point
                 p_b = copy.copy(p_0)
+		x_b, y_b, z_b = p_b
 
-		# frame interval
-		frame_interval = 1.0/self.configs.detector_fps
-		exposure_time  = self.configs.detector_exposure_time
+                # set boundary condition
+                if (self.configs.spatiocyte_bc_switch == True) :
 
-		time = self.configs.detector_start_time
-		end  = self.configs.detector_end_time
+                    bc = numpy.zeros(shape=(Nz, Ny))
+                    bc = self.set_boundary_plane(bc, p_b, p_0)
 
-		# data-time interval
-                t0 = self.configs.spatiocyte_data[0][0]
-                t1 = self.configs.spatiocyte_data[1][0]
+                # exposure time
+		bandwidth = self.configs.detector_bandwidth
+                exposure_time  = 1/(2*bandwidth)
 
-		delta_data  = t1 - t0
-                delta_frame = int(frame_interval/delta_data)
+                spatiocyte_start_time = self.configs.spatiocyte_start_time
+                time = exposure_time * start_count
+                end  = exposure_time * stop_count
+
+                # data-time interval
+                data_interval = self.configs.spatiocyte_interval
+
+                delta_time = int(round(exposure_time/data_interval))
 
                 # create frame data composed by frame element data
-		count = int((time - t0)/frame_interval)
+                count  = start_count
+                count0 = int(round(spatiocyte_start_time / exposure_time))
 
-		while (time < end) :
+                # initialize Physical effects
+                #length0 = len(self.configs.spatiocyte_data[0][1])
+                #self.effects.set_states(t0, length0)
 
-                    # set image file name
-                    self.image_file_name = os.path.join(self.configs.movie_image_file_dir, \
-                                                self.configs.movie_image_file_name_format % (count))
+                while (time < end) :
 
-                    print 'time : ', time, ' sec'
+                        # set image file name
+                        image_file_name = os.path.join(self.configs.image_file_dir,
+                                        self.configs.image_file_name_format % (count))
 
-                    cell = numpy.zeros(shape=(Nz, Ny))
+                        print 'time : ', time, ' sec (', count, ')'
 
-		    count_start = count*delta_frame
-		    count_end = (count + 1)*delta_frame
+                        # define cell
+                        cell = numpy.zeros(shape=(Nz, Ny))
 
-		    frame_data = self.configs.spatiocyte_data[count_start:count_end]
+                        count_start = (count - count0)*delta_time
+                        count_end   = (count - count0 + 1)*delta_time
 
-		    # loop for frame data
-                    for i in range(len(frame_data)) :
+                        frame_data = self.configs.spatiocyte_data[count_start:count_end]
 
-			# i-th data in a frame
-			i_time = frame_data[i][0]
-			data   = frame_data[i][1]
-			total  = len(data)
+                        # loop for frame data
+                        for i, (i_time, data) in enumerate(frame_data):
+                                print '\t', '%02d-th frame : ' % (i), i_time, ' sec'
+                                # loop for particles
+                                for j, data_j in enumerate(data):
+                                        self.get_molecule_plane(cell, i_time, data_j, j, p_b, p_0)
 
-			Norm = 1.0#numpy.exp(-(i_time - time)/exposure_time)
+			# Photon detection through pinhole
+			r_p = int(self.configs.image_scaling*voxel_size/2)
 
-			# loop for particles
-			for j in range(total) :
+			if (y_b-r_p < 0) : y_from = y_b
+			else : y_from = y_b - r_p
 
-			    c_id, s_id, l_id = data[j]
+			if (y_b+r_p > Ny) : y_to = y_b
+			else : y_to = y_b + r_p
 
-                            # particles coordinate in real(nm) scale
-                            pos = self.get_coordinate(c_id)
-                            p_i = numpy.array(pos)*voxel_size
+			if (z_b-r_p < 0) : z_from = z_b
+			else : z_from = z_b - r_p
 
-			    # get signal matrix
-			    signal = Norm*numpy.array(self.get_signal(p_i, p_b, p_0))
+			if (z_b+r_p > Nz) : z_to = z_b
+			else : z_to = z_b + r_p
 
-			    # add signal matrix to image plane
-			    cell = self.overwrite(cell, signal, p_i)
+			mask = numpy.zeros(shape=(z_to-z_from, y_to-y_from))
 
-		    # Output image : Assuming CCD camera output
-		    self.detector_output_CCD(cell)
+			zz, yy = numpy.ogrid[z_from-z_b:z_to-z_b, y_from-y_b:y_to-y_b]
+			rr_cut = yy**2 + zz**2 < r_p**2
+			mask[rr_cut] = 1
 
-                    camera = self.detector_output(cell)
-                    camera.astype('uint%d' % (self.configs.detector_ADC_bit))
+			# get photon flux (Photons/sec)
+			photon_flux = numpy.sum(mask*cell[z_from:z_to, y_from:y_to])
 
-                    # save image to file
-                    toimage(camera, low=numpy.amin(camera), high=numpy.amax(camera), mode='I').save(self.image_file_name)
+                        # get outputs from analog and photon-counting modes
+                        current, charge, pulse_rate, pulse, ADC = self.detector_output(photon_flux)
 
-		    # PMT Detector output : intensity (ADC count)
-                    intensity = self.detector_output_PMT(cell, p_b, p_0)
+                        # write a file
+                        output_file= self.configs.image_file_dir + '/output_%09d.dat' % (count)
 
-		    data_line  = str(time) + '\t'
-		    data_line += str(intensity) + '\t'
-		    data_line += '\n'
+                        line  = str(time)	+ '\t'
+                        line += str(photon_flux) + '\t'
+                        line += str(current)	+ '\t'
+                        line += str(charge)	+ '\t'
+                        line += str(pulse_rate)	+ '\t'
+                        line += str(pulse)	+ '\t'
+                        line += str(ADC)	+ '\n'
 
-		    with open(self.output_file, 'a') as output :
-			output.write(data_line)
+                        with open(output_file, 'w') as output :
+                            output.write(line)
 
-
-		    time  += frame_interval
-		    count += 1
-
-
-
-	def detector_output_CCD(self, cell) :
-
-		# Detector Output
-		voxel_radius = self.configs.spatiocyte_VoxelRadius
-                voxel_size = (2.0*voxel_radius)/1e-9
-
-		Nw_pixel = self.img_width
-		Nh_pixel = self.img_height
-
-		Np = int(self.configs.image_scaling*voxel_size)
-
-                # image in nm-scale
-		Nw_camera = Nw_pixel*Np
-		Nh_camera = Nh_pixel*Np
-
-		Nw_cell = len(cell)
-		Nh_cell = len(cell[0])
-
-		if (Nw_camera > Nw_cell) :
-
-			w_cam_from = int((Nw_camera - Nw_cell)/2.0)
-			w_cam_to   = w_cam_from + Nw_cell
-                        w_cel_from = 0
-                        w_cel_to   = Nw_cell
-
-		else :
-
-                        w_cam_from = 0
-                        w_cam_to   = Nw_camera
-                        w_cel_from = int((Nw_cell - Nw_camera)/2.0)
-                        w_cel_to   = w_cel_from + Nw_camera
-
-		if (Nh_camera > Nh_cell) :
-
-                        h_cam_from = int((Nh_camera - Nh_cell)/2.0)
-                        h_cam_to   = h_cam_from + Nh_cell
-                        h_cel_from = 0
-                        h_cel_to   = Nh_cell
-
-                else :
-
-                        h_cam_from = 0
-                        h_cam_to   = int(Nh_camera)
-                        h_cel_from = int((Nh_cell - Nh_camera)/2.0)
-                        h_cel_to   = h_cel_from + Nh_camera
+                        time  += exposure_time
+                        count += 1
 
 
-		# image in nm-scale
-		plane = cell[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
-
-		# convert image in nm-scale to pixel-scale
-                cell_pixel = numpy.zeros(shape=(Nw_cell/Np, Nh_cell/Np))
-
-		for i in range(Nw_cell/Np) :
-		    for j in range(Nh_cell/Np) :
-
-			# get signal
-			signal = numpy.sum(plane[i*Np:(i+1)*Np,j*Np:(j+1)*Np])
-
-			# get background
-			background = 0
-
-			# get noise
-			noise = self.get_noise(signal + background)
-
-			# get signal + noise
-			M  = self.configs.detector_emgain
-			PE = numpy.random.poisson(M*(signal + background + noise), None)
-
-			ADC = self.A2D_converter(PE)
-			cell_pixel[i][j] = ADC
 
 
-                # flat image in pixel-scale
-		signal = 0
+	def detector_output(self, photon_flux) :
+
+		# reset random seed
+		numpy.random.seed()
+
+		# get Quantum Efficiency
+		#index = int(self.configs.psf_wavelength) - int(self.configs.wave_length[0])
+		#QE = self.configs.detector_qeff[index]
+		QE = 0.3
+
+		# get background (photoelectrons)
 		background = 0
-		noise  = self.get_noise(signal + background)
 
-                PE = numpy.random.poisson(M*(signal + background + noise), Nw_pixel*Nh_pixel)
-		camera = numpy.array(map(lambda x : self.A2D_converter(x), PE))
-		camera_pixel = camera.reshape([Nw_pixel, Nh_pixel])
+		# detector noise in current unit (Ampere)
+                NA = self.configs.detector_readout
+                Id = self.configs.detector_dark_current
+                F  = self.configs.detector_excess
+                B  = self.configs.detector_bandwidth
+                M  = self.configs.detector_emgain
+		e  = self.configs.electron_charge
 
-		#camera_pixel = numpy.zeros(shape=(Nw_pixel, Nh_pixel))
-                #ADC0 = self.configs.detector_ADC_offset
-                #camera_pixel.fill(ADC0)
+                # get current at cathode (photoelectric current)
+		e = self.configs.electron_charge
+		cathode_current = e*(QE*photon_flux + background)
 
-		w_cam_from = int(w_cam_from/Np)
-		w_cam_to   = int(w_cam_to/Np)
-		h_cam_from = int(h_cam_from/Np)
-		h_cam_to   = int(h_cam_to/Np)
+		# get detector noise (photoelectric current)
+		noise_current = self.get_noise_analog(cathode_current)
 
-		w_cel_from = int(w_cel_from/Np)
-		w_cel_to   = int(w_cel_to/Np)
-		h_cel_from = int(h_cel_from/Np)
-		h_cel_to   = int(h_cel_to/Np)
+                # get anode current (Gain x cathode current)
+		G = self.configs.detector_emgain
+		anode_current = numpy.random.normal(G*cathode_current, noise_current, None)
 
-		ddw = (w_cam_to - w_cam_from) - (w_cel_to - w_cel_from)
-		ddh = (h_cam_to - h_cam_from) - (h_cel_to - h_cel_from)
+		# get total charge
+		B = self.configs.detector_bandwidth
+		T = 1/(2*B)
 
-		if   (ddw > 0) : w_cam_to = w_cam_to - ddw
-		elif (ddw < 0) : w_cel_to = w_cel_to - ddw
+		charge = anode_current*T
 
-                if   (ddh > 0) : h_cam_to = h_cam_to - ddh
-                elif (ddh < 0) : h_cel_to = h_cel_to - ddh
+		# get photoelectron-pulse counting rate
+		signal_rate = QE*photon_flux + background
+		noise_rate  = self.get_noise_pulse(signal_rate)
 
+		#pulse_rate  = signal_rate + noise_rate
+		#pulse_rate  = numpy.random.poisson(round(signal_rate + noise_rate), None)
+		pulse_rate  = numpy.random.normal(signal_rate, noise_rate, None)
 
-		camera_pixel[w_cam_from:w_cam_to, h_cam_from:h_cam_to] = cell_pixel[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
+		# get total pulses
+		pulse = pulse_rate*T
+		#pulse = numpy.random.normal(signal_rate*T, noise_rate*T, None)
 
-		return camera_pixel
+		# get ADC counts (pulse --> ADC counts)
+		pixel = (0, 0)
+		ADC = self.get_ADC_value(pixel, pulse)
 
-		# pinhole in pixel-scale
-                #N_ph = (self.configs.image_scaling*voxel_size)
-                #PH_radius = (N_ph/Np)/2.0
-
-                #w = numpy.linspace(0, Nw_pixel-1, Nw_pixel)
-                #h = numpy.linspace(0, Nh_pixel-1, Nh_pixel)
-		#W, H = numpy.meshgrid(w, h)
-
-		#y0 = Nw_pixel/2.0
-		#z0 = Nh_pixel/2.0
-
-		#func = lambda y, z : abs(PH_radius**2 - ((y - y0)**2 + (z - z0)**2))
-		#pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 3e+5 if func(y, z) < 5 else 0.00, w), h))
-
-		# add pinhole to camera
-		#camera_pixel += pinhole_pixel
+		return anode_current, charge, pulse_rate, pulse, ADC
 
 
 
-	def detector_output_PMT(self, cell, p_b, p_0) :
-
-                voxel_size = (2.0*self.configs.spatiocyte_VoxelRadius)/1e-9
-
-		# pinhole radius
-		PH_radius = int((self.configs.image_scaling*voxel_size)/2.0)
-
-                # image in nm-scale
-		x_b, y_b, z_b = p_b
-		x_0, y_0, z_0 = p_0
-
-                #func = lambda y, z : (y - y0)**2 + (z - z0)**2
-                #pinhole_pixel = numpy.array(map(lambda z : map(lambda y : 1.0 if func(y, z) < PH_radius**2 else 0.00, w), h))
-
-		pinhole_pixel = copy.copy(cell)
-
-                w_cel_from = y_b - PH_radius
-                w_cel_to   = y_b + PH_radius
-
-                h_cel_from = z_b - PH_radius
-                h_cel_to   = z_b + PH_radius
-
-		# image in nm-scale
-		plane = cell[w_cel_from:w_cel_to, h_cel_from:h_cel_to]
-
-		# integrate photons through the pinhole
-		signal = numpy.sum(plane)
-
-		# convert signals in photoelectron to count
-		intensity = self.A2D_converter(signal)
-
-		return intensity
-
+#	def get_ADC_value(self, photoelectron) :
+#
+#	    # check non-linearity
+#	    fullwell = self.configs.ADConverter_fullwell
+#
+#	    if (photoelectron > fullwell) :
+#		photoelectron = fullwell
+#
+#            # convert photoelectron to ADC counts (Grayscale)
+#            k = self.configs.ADConverter_gain[0][0]
+#            ADC0 = self.configs.ADConverter_offset[0][0]
+#            ADC_max = 2**self.configs.ADConverter_bit - 1
+#
+#            ADC = photoelectron/k + ADC0
+#
+#	    if (ADC > ADC_max) :
+#		ADC = ADC_max
+#
+#	    if (ADC < 0) :
+#		ADC = 0
+#
+#	    return int(ADC)
 
 
