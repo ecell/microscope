@@ -217,7 +217,7 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 
             return signal
 
-        def get_molecule_plane(self, cell, time, data, pid, p_b, p_0):
+        def get_molecule_plane(self, cell, time, data, pid, p_b, p_0, offset):
             voxel_size = (2.0*self.configs.spatiocyte_VoxelRadius)/1e-9
 
             # get beam position
@@ -252,8 +252,31 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
                     # get signal matrix
                     signal = self.get_signal(time, pid, s_index, p_i, p_b, p_0, norm)
 
-                    # add signal matrix to image plane
-                    self.overwrite_signal(cell, signal, p_i)
+                    z_from, y_from = offset
+                    z_size, y_size = cell.shape
+                    z_to = z_from + y_size
+                    y_to = y_from + y_size
+                    r = len(self.configs.radial)
+
+                    self.overwrite_signal(cell, signal, p_i, r, z_from, y_from, z_to, y_to)
+
+        def overwrite_signal(self, cell, signal, p_i, r, z_from, y_from, z_to, y_to):
+            z_size = z_to - z_from
+            y_size = y_to - y_from
+            x_i, y_i, z_i = p_i
+            zi_size, yi_size = signal.shape
+
+            z0_from = bounded(z_i - r - z_from, lower_bound=0, upper_bound=z_size)
+            y0_from = bounded(y_i - r - y_from, lower_bound=0, upper_bound=y_size)
+            z0_to = bounded(z_i + r - z_to, lower_bound=0, upper_bound=z_size)
+            y0_to = bounded(y_i + r - y_to, lower_bound=0, upper_bound=y_size)
+
+            zi_from = bounded(z_from - z_i + r, lower_bound=0, upper_bound=zi_size)
+            yi_from = bounded(y_from - y_i + r, lower_bound=0, upper_bound=yi_size)
+            zi_to = bounded(z_from - z_i + r + z_size, lower_bound=0, upper_bound=zi_size)
+            yi_to = bounded(y_from - y_i + r + y_size, lower_bound=0, upper_bound=yi_size)
+
+            cell[z0_from:z0_to, y0_from:y0_to] += signal[zi_from:zi_to, yi_from:yi_to]
 
         def output_frames(self, num_div=1):
 
@@ -371,7 +394,6 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 
                 # define cell in pixel-scale
                 cell = numpy.zeros(shape=(Nz, Ny))
-                scan_cell = numpy.zeros(shape=(Nz, Ny))
 
                 count_start = (count - count0)*delta_time
                 count_end = (count - count0 + 1)*delta_time
@@ -407,9 +429,6 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
                             # Beam position : y-direction
                             beam_center[1] = y_scan_time/y_contact_time
 
-                            # define : cell at scanned region
-                            scan_cell.fill(0)
-
                             p_b = numpy.array([Nx, Ny, Nz])*beam_center
                             x_b, y_b, z_b = p_b
 
@@ -427,10 +446,6 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
                                 if i_diff < diff:
                                     diff = i_diff
                                     data = i_data
-
-                            # loop for particles
-                            for j, j_data in enumerate(data):
-                                self.get_molecule_plane(scan_cell, i_time, j_data, j, p_b, p_0)
 
                             # overwrite the scanned region to cell
                             r_p = int(self.configs.image_scaling*voxel_size/2)
@@ -455,13 +470,19 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
                             else:
                                 z_to = int(z_b + r_p)
 
+                            offset = (z_from, y_from)
                             mask = numpy.zeros(shape=(z_to-z_from, y_to-y_from))
 
                             zz, yy = numpy.ogrid[z_from-int(z_b):z_to-int(z_b), y_from-int(y_b):y_to-int(y_b)]
                             rr_cut = yy**2 + zz**2 < r_p**2
                             mask[rr_cut] = 1
 
-                            cell[z_from:z_to, y_from:y_to] += mask*scan_cell[z_from:z_to, y_from:y_to]
+                            scan_cell = numpy.zeros_like(mask)
+                            # loop for particles
+                            for j, j_data in enumerate(data):
+                                self.get_molecule_plane(scan_cell, i_time, j_data, j, p_b, p_0, offset)
+
+                            cell[z_from:z_to, y_from:y_to] += mask * scan_cell
 
                             y_scan_time += y_contact_time/Ny_pixel
 
@@ -695,3 +716,11 @@ class PointScanConfocalVisualizer(FCSVisualizer) :
 
 
 		return camera_pixel
+
+
+def bounded(value, lower_bound=None, upper_bound=None):
+    if lower_bound is not None and value < lower_bound:
+        return lower_bound
+    if upper_bound is not None and value > upper_bound:
+        return upper_bound
+    return value
